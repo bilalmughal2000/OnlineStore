@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import { env } from './env';
@@ -14,6 +15,7 @@ export function createApp() {
   const app = express();
 
   app.set('trust proxy', 1);
+  app.use(compression()); // gzip/brotli responses — big win over the wire on mobile
   app.use(helmet());
   app.use(
     cors({
