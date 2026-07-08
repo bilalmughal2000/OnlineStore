@@ -85,6 +85,7 @@ export function ProductDetail({ product }: { product: FullProduct }) {
             <button
               key={im.id}
               onClick={() => setActiveImg(i)}
+              aria-label={`View image ${i + 1}`}
               className={`relative h-20 w-16 shrink-0 overflow-hidden rounded border-2 ${
                 i === activeImg ? 'border-accent' : 'border-transparent'
               }`}
@@ -126,6 +127,8 @@ export function ProductDetail({ product }: { product: FullProduct }) {
                   key={c.name}
                   onClick={() => setColor(c.name)}
                   title={c.name}
+                  aria-label={`Colour: ${c.name}`}
+                  aria-pressed={color === c.name}
                   className={`h-8 w-8 rounded-full border-2 ${color === c.name ? 'border-accent' : 'border-black/10'}`}
                   style={{ backgroundColor: c.hex ?? '#ccc' }}
                 />

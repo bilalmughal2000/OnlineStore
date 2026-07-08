@@ -19,7 +19,7 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
   return (
     <section className="relative">
       <div className="relative aspect-[16/7] w-full overflow-hidden bg-black/5 md:aspect-[16/6]">
-        <Image src={b.imageUrl} alt={b.title ?? 'Banner'} fill priority className="object-cover" />
+        <Image src={b.imageUrl} alt={b.title ?? 'Banner'} fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 flex items-center bg-gradient-to-r from-black/50 to-transparent">
           <div className="container-x">
             <div className="max-w-md text-white">
