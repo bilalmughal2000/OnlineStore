@@ -1,0 +1,30 @@
+{
+  "name": "clothing-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Online Clothing Store — full-stack e-commerce (Pakistan market)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "db:up": "docker compose up -d postgres redis",
+    "db:down": "docker compose down",
+    "db:generate": "npm run generate -w @store/database",
+    "db:migrate": "npm run migrate -w @store/database",
+    "db:seed": "npm run seed -w @store/database",
+    "db:reset": "npm run reset -w @store/database",
+    "dev:api": "npm run dev -w @store/api",
+    "dev:storefront": "npm run dev -w @store/storefront",
+    "dev:admin": "npm run dev -w @store/admin",
+    "build:packages": "npm run build -w @store/shared-types && npm run build -w @store/database",
+    "build:api": "npm run build:packages && npm run build -w @store/api",
+    "build:storefront": "npm run build -w @store/shared-types && npm run build -w @store/storefront",
+    "build:admin": "npm run build -w @store/admin",
+    "build": "npm run build:packages && npm run build -w @store/api && npm run build:storefront && npm run build:admin",
+    "setup": "npm install && npm run db:up && npm run build:packages && npm run db:migrate && npm run db:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

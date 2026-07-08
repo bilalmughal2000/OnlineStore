@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: store
+          POSTGRES_PASSWORD: store
+          POSTGRES_DB: clothing_store
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U store" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://store:store@localhost:5432/clothing_store?schema=public
+      JWT_ACCESS_SECRET: ci-access
+      JWT_REFRESH_SECRET: ci-refresh
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @store/shared-types
+      - run: npm run generate -w @store/database
+      - run: npm run migrate:deploy -w @store/database
+      - name: Typecheck API
+        run: npm run typecheck -w @store/api
+      - name: Build all
+        run: npm run build
