@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Select } from '@/components/Select';
 
 const TYPES = ['PRODUCT_GRID', 'CATEGORY_TILES', 'BANNER', 'CAROUSEL'];
 
@@ -39,17 +40,23 @@ export function Sections() {
       <form onSubmit={create} className="card mb-6 grid grid-cols-3 items-end gap-4 p-5">
         <div><label className="label">Title</label><input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>
         <div><label className="label">Type</label>
-          <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            {TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
-          </select>
+          <Select
+            value={form.type}
+            onChange={(v) => setForm({ ...form, type: v })}
+            options={TYPES.map((t) => ({ value: t, label: t.replace(/_/g, ' ') }))}
+          />
         </div>
         {form.type === 'PRODUCT_GRID' && (
           <div><label className="label">Populate with</label>
-            <select className="input" value={form.filter} onChange={(e) => setForm({ ...form, filter: e.target.value })}>
-              <option value="newest">Newest</option>
-              <option value="featured">Featured</option>
-              <option value="onSale">On sale</option>
-            </select>
+            <Select
+              value={form.filter}
+              onChange={(v) => setForm({ ...form, filter: v })}
+              options={[
+                { value: 'newest', label: 'Newest' },
+                { value: 'featured', label: 'Featured' },
+                { value: 'onSale', label: 'On sale' },
+              ]}
+            />
           </div>
         )}
         <button className="btn-primary col-span-3"><Plus size={16} /> Add Section</button>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Select } from '@/components/Select';
 
 export function Categories() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -35,10 +36,11 @@ export function Categories() {
         </div>
         <div className="flex-1">
           <label className="label">Parent (optional)</label>
-          <select className="input" value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })}>
-            <option value="">— Top level —</option>
-            {parents.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <Select
+            value={form.parentId}
+            onChange={(v) => setForm({ ...form, parentId: v })}
+            options={[{ value: '', label: '— Top level —' }, ...parents.map((c) => ({ value: c.id, label: c.name }))]}
+          />
         </div>
         <button className="btn-primary"><Plus size={16} /> Add</button>
       </form>

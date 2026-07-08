@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
+import { Select } from '@/components/ui/Select';
 
 const SIZES = ['S', 'M', 'L', 'XL'];
 const SORTS = [
@@ -34,18 +35,13 @@ export function ListingControls({ total }: { total: number }) {
     <div className="mb-6 flex flex-wrap items-center gap-3">
       <span className="text-sm text-ink/60">{total} products</span>
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <select
+        <Select
+          className="w-36"
+          ariaLabel="Filter by size"
           value={current('size')}
-          onChange={(e) => setParam('size', e.target.value || null)}
-          className="select"
-        >
-          <option value="">All sizes</option>
-          {SIZES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setParam('size', v || null)}
+          options={[{ value: '', label: 'All sizes' }, ...SIZES.map((s) => ({ value: s, label: s }))]}
+        />
 
         <label className="flex items-center gap-1.5 rounded-md border border-ink/20 bg-white px-3 py-2 text-sm">
           <input
@@ -65,17 +61,13 @@ export function ListingControls({ total }: { total: number }) {
           In stock
         </label>
 
-        <select
+        <Select
+          className="w-48"
+          ariaLabel="Sort products"
           value={current('sort') || 'newest'}
-          onChange={(e) => setParam('sort', e.target.value)}
-          className="select"
-        >
-          {SORTS.map((s) => (
-            <option key={s.v} value={s.v}>
-              {s.l}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setParam('sort', v)}
+          options={SORTS.map((s) => ({ value: s.v, label: s.l }))}
+        />
       </div>
     </div>
   );

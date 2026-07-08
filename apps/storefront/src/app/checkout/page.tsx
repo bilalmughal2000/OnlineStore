@@ -6,6 +6,7 @@ import { PROVINCES } from '@store/shared-types';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi, ApiError } from '@/lib/client-api';
 import { formatPKR } from '@/lib/format';
+import { Select } from '@/components/ui/Select';
 
 const PK_CITIES = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala', 'Hyderabad', 'Other'];
 
@@ -82,14 +83,20 @@ function CheckoutInner() {
                 <Field label="Address"><input className="input" value={form.addressLine} onChange={set('addressLine')} placeholder="House #, Street, Area" /></Field>
               </div>
               <Field label="City">
-                <select className="input" value={form.city} onChange={set('city')}>
-                  {PK_CITIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
+                <Select
+                  className="w-full"
+                  value={form.city}
+                  onChange={(v) => setForm((f) => ({ ...f, city: v }))}
+                  options={PK_CITIES.map((c) => ({ value: c, label: c }))}
+                />
               </Field>
               <Field label="Province">
-                <select className="input" value={form.province} onChange={set('province')}>
-                  {PROVINCES.map((p) => <option key={p}>{p}</option>)}
-                </select>
+                <Select
+                  className="w-full"
+                  value={form.province}
+                  onChange={(v) => setForm((f) => ({ ...f, province: v }))}
+                  options={PROVINCES.map((p) => ({ value: p, label: p }))}
+                />
               </Field>
               <Field label="Postal Code (optional)"><input className="input" value={form.postalCode} onChange={set('postalCode')} /></Field>
             </div>

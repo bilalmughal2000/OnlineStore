@@ -6,6 +6,7 @@ import { Trash2 } from 'lucide-react';
 import { PROVINCES } from '@store/shared-types';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi } from '@/lib/client-api';
+import { Select } from '@/components/ui/Select';
 
 const empty = { label: 'Home', fullName: '', phone: '', addressLine: '', city: '', province: PROVINCES[0] as string, postalCode: '' };
 
@@ -48,9 +49,12 @@ export default function AddressesPage() {
           <input className="input" placeholder="Phone (03XXXXXXXXX)" value={form.phone} onChange={set('phone')} required />
           <input className="input sm:col-span-2" placeholder="Address" value={form.addressLine} onChange={set('addressLine')} required />
           <input className="input" placeholder="City" value={form.city} onChange={set('city')} required />
-          <select className="input" value={form.province} onChange={set('province')}>
-            {PROVINCES.map((p) => <option key={p}>{p}</option>)}
-          </select>
+          <Select
+            className="w-full"
+            value={form.province}
+            onChange={(v) => setForm((f) => ({ ...f, province: v }))}
+            options={PROVINCES.map((p) => ({ value: p, label: p }))}
+          />
           <button className="btn-primary sm:col-span-2">Save Address</button>
         </form>
       )}

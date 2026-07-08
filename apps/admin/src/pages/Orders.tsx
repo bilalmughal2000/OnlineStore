@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { formatPKR, formatDate } from '@/lib/format';
+import { Select } from '@/components/Select';
 
 const STATUSES = ['', 'PLACED', 'CONFIRMED', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED'];
 
@@ -28,9 +29,12 @@ export function Orders() {
       <h1 className="mb-6 font-serif text-2xl font-bold">Orders</h1>
       <div className="mb-4 flex gap-3">
         <input className="input max-w-xs" placeholder="Search order # or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="input max-w-xs" value={status} onChange={(e) => setStatus(e.target.value)}>
-          {STATUSES.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
-        </select>
+        <Select
+          className="w-56"
+          value={status}
+          onChange={setStatus}
+          options={STATUSES.map((s) => ({ value: s, label: s ? s.replace(/_/g, ' ') : 'All statuses' }))}
+        />
       </div>
 
       <div className="card overflow-hidden">

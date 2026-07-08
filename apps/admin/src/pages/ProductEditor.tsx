@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, Upload } from 'lucide-react';
 import { api, ApiError, uploadImage } from '@/lib/api';
+import { Select } from '@/components/Select';
 
 interface VariantRow {
   id?: string;
@@ -289,17 +290,25 @@ export function ProductEditor() {
         <div className="space-y-5">
           <div className="card space-y-4 p-5">
             <div><label className="label">Status</label>
-              <select className="input" value={form.status} onChange={set('status')}>
-                <option value="DRAFT">Draft</option>
-                <option value="PUBLISHED">Published</option>
-                <option value="ARCHIVED">Archived</option>
-              </select>
+              <Select
+                value={form.status}
+                onChange={(v) => setForm((f) => ({ ...f, status: v }))}
+                options={[
+                  { value: 'DRAFT', label: 'Draft' },
+                  { value: 'PUBLISHED', label: 'Published' },
+                  { value: 'ARCHIVED', label: 'Archived' },
+                ]}
+              />
             </div>
             <div><label className="label">Category</label>
-              <select className="input" value={form.categoryId} onChange={set('categoryId')}>
-                <option value="">Uncategorised</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.parent ? `${c.parent.name} › ` : ''}{c.name}</option>)}
-              </select>
+              <Select
+                value={form.categoryId}
+                onChange={(v) => setForm((f) => ({ ...f, categoryId: v }))}
+                options={[
+                  { value: '', label: 'Uncategorised' },
+                  ...categories.map((c) => ({ value: c.id, label: `${c.parent ? `${c.parent.name} › ` : ''}${c.name}` })),
+                ]}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.isFeatured} onChange={set('isFeatured')} /> Featured product

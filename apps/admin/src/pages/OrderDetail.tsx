@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatPKR, formatDate } from '@/lib/format';
+import { Select } from '@/components/Select';
 
 const STATUSES = ['PLACED', 'CONFIRMED', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED'];
 const PAY_STATUSES = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
@@ -99,14 +100,18 @@ export function OrderDetail() {
           <div className="card space-y-3 p-5">
             <h2 className="font-semibold">Update Status</h2>
             <input className="input" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-            <select className="input" value={order.status} onChange={(e) => updateStatus(e.target.value)}>
-              {STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-            </select>
+            <Select
+              value={order.status}
+              onChange={updateStatus}
+              options={STATUSES.map((s) => ({ value: s, label: s.replace(/_/g, ' ') }))}
+            />
 
             <h2 className="pt-2 font-semibold">Payment: {order.paymentMethod}</h2>
-            <select className="input" value={order.paymentStatus} onChange={(e) => updatePayment(e.target.value)}>
-              {PAY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <Select
+              value={order.paymentStatus}
+              onChange={updatePayment}
+              options={PAY_STATUSES.map((s) => ({ value: s, label: s }))}
+            />
           </div>
         </div>
       </div>

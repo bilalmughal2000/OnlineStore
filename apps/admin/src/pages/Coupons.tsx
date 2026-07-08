@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { formatPKR } from '@/lib/format';
+import { Select } from '@/components/Select';
 
 const blank = { code: '', type: 'PERCENTAGE', value: 10, minOrderValue: 0 };
 
@@ -32,10 +33,14 @@ export function Coupons() {
       <form onSubmit={create} className="card mb-6 grid grid-cols-2 items-end gap-4 p-5 md:grid-cols-4">
         <div><label className="label">Code</label><input className="input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} required /></div>
         <div><label className="label">Type</label>
-          <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            <option value="PERCENTAGE">Percentage</option>
-            <option value="FIXED">Fixed (PKR)</option>
-          </select>
+          <Select
+            value={form.type}
+            onChange={(v) => setForm({ ...form, type: v })}
+            options={[
+              { value: 'PERCENTAGE', label: 'Percentage' },
+              { value: 'FIXED', label: 'Fixed (PKR)' },
+            ]}
+          />
         </div>
         <div><label className="label">Value</label><input type="number" className="input" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} /></div>
         <div><label className="label">Min Order</label><input type="number" className="input" value={form.minOrderValue} onChange={(e) => setForm({ ...form, minOrderValue: Number(e.target.value) })} /></div>
