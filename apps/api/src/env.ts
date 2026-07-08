@@ -8,7 +8,8 @@ function required(key: string, fallback?: string): string {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   isProd: process.env.NODE_ENV === 'production',
-  port: Number(process.env.API_PORT ?? 4000),
+  // PORT is set by Passenger (cPanel "Setup Node.js App"); API_PORT is used by PM2/VPS.
+  port: Number(process.env.PORT ?? process.env.API_PORT ?? 4000),
   databaseUrl: required('DATABASE_URL', 'postgresql://store:store@localhost:5432/clothing_store'),
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:5173')

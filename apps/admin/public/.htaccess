@@ -1,0 +1,11 @@
+# SPA fallback for hosting the admin build on Apache / cPanel.
+# Vite copies files in public/ into dist/, so this ships with the build.
+# Routes all non-file requests to index.html so React Router handles them.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
