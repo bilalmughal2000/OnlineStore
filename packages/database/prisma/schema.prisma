@@ -7,7 +7,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime queries go through `url` — point this at the pooler (PgBouncer /
+  // Supabase / Neon pooler) in production. Migrations & introspection use
+  // `directUrl`, a direct (non-pooled) connection, since PgBouncer's
+  // transaction pooling mode can't run them.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ─────────────────────────────── Enums ───────────────────────────────

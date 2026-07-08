@@ -20,7 +20,8 @@ jobs:
           --health-cmd "pg_isready -U store" --health-interval 5s
           --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://store:store@localhost:5432/clothing_store?schema=public
+      DATABASE_URL: postgresql://store:store@localhost:5432/clothing_store?schema=public&connection_limit=10&pool_timeout=20
+      DIRECT_DATABASE_URL: postgresql://store:store@localhost:5432/clothing_store?schema=public
       JWT_ACCESS_SECRET: ci-access
       JWT_REFRESH_SECRET: ci-refresh
       NEXT_PUBLIC_API_URL: http://localhost:4000/api

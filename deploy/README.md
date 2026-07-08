@@ -29,6 +29,34 @@ sudo ln -s /etc/nginx/sites-available/store /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
+## Database connection pooling
+
+Postgres caps total connections (`max_connections`, default ~100) and each idle
+connection costs RAM — critical on a small VPS. The app reuses a bounded pool of
+connections instead of opening one per request.
+
+**Two URLs (see `.env.example`):**
+- `DATABASE_URL` — runtime queries. Carries `connection_limit` + `pool_timeout`.
+  Point it at a **pooler** (PgBouncer / Supabase / Neon pooler) in production.
+- `DIRECT_DATABASE_URL` — a **direct** (non-pooled) connection used only for
+  migrations/introspection (PgBouncer transaction mode can't run them).
+
+**Sizing rule — never exceed Postgres's limit:**
+```
+connection_limit × (PM2 instances) ≤ max_connections − headroom(~20)
+```
+Examples on a 2-vCPU box with `max_connections=100`:
+- 1 API process → `connection_limit=10` (default here)
+- 2 API processes (both cores) → `connection_limit=10` each = 20 total ✓
+
+**PgBouncer (transaction mode):** add `pgbouncer=true` to `DATABASE_URL` (Prisma
+then disables prepared statements, which that mode doesn't support), and keep
+`DIRECT_DATABASE_URL` pointing at the real Postgres port (5432), not PgBouncer (6432).
+
+**Managed DB (Supabase/Neon):** use their **pooler** connection string for
+`DATABASE_URL` and their **direct** string for `DIRECT_DATABASE_URL` — their free
+tiers enforce low connection limits, so the pooler is mandatory at any real traffic.
+
 ## SSL
 Use Cloudflare (proxy DNS, free SSL) **or** Certbot: `sudo certbot --nginx`.
 
