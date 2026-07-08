@@ -37,7 +37,7 @@ export function ListingControls({ total }: { total: number }) {
         <select
           value={current('size')}
           onChange={(e) => setParam('size', e.target.value || null)}
-          className="rounded-md border border-ink/20 bg-white px-3 py-2 text-sm"
+          className="select"
         >
           <option value="">All sizes</option>
           {SIZES.map((s) => (
@@ -68,7 +68,7 @@ export function ListingControls({ total }: { total: number }) {
         <select
           value={current('sort') || 'newest'}
           onChange={(e) => setParam('sort', e.target.value)}
-          className="rounded-md border border-ink/20 bg-white px-3 py-2 text-sm"
+          className="select"
         >
           {SORTS.map((s) => (
             <option key={s.v} value={s.v}>

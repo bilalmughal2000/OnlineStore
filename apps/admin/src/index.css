@@ -14,9 +14,24 @@ body {
   .btn-outline { @apply btn border border-stone-300 bg-white hover:bg-stone-100; }
   .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
   .input { @apply w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand; }
+  .select { @apply appearance-none rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand; }
   .label { @apply mb-1 block text-sm font-medium text-stone-600; }
   .card { @apply rounded-lg border border-stone-200 bg-white shadow-sm; }
   .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold; }
   .th { @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500; }
   .td { @apply px-4 py-3 text-sm; }
+}
+
+/* Themed dropdown chevron for every <select> (both .select and .input selects). */
+.select,
+select.input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23787066' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 1.05em;
+  cursor: pointer;
 }
