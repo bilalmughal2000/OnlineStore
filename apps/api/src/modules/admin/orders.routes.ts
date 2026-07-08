@@ -7,6 +7,7 @@ import { validate } from '../../middleware/validate';
 import { serialize } from '../../lib/serialize';
 import { notFound } from '../../lib/errors';
 import { toNum } from '../../lib/money';
+import { notifyOrderStatus } from '../../lib/notify';
 import { logActivity } from './helpers';
 
 export const adminOrdersRouter = Router();
@@ -74,7 +75,8 @@ adminOrdersRouter.patch(
       include: orderInclude,
     });
     await logActivity(req.auth!.userId, 'update-status', 'Order', order.id, { status });
-    // TODO(Phase 3): send email/SMS notification about the status change.
+    // Notify the customer of the status change (email + WhatsApp), best-effort.
+    if (order.user) notifyOrderStatus(order, order.user);
     res.json({ order: serialize(order) });
   }),
 );

@@ -74,6 +74,25 @@ COD is fully working. Stripe / JazzCash / EasyPaisa are structured as integratio
 
 > **Stripe note:** Stripe does not natively support PKR payouts for PK-registered merchants — confirm business/entity eligibility before building (spec §6.4, §11.2).
 
+## Order notifications (email + WhatsApp)
+
+Order **placed** and **status-change** events notify the customer via two
+independent, best-effort channels (`apps/api/src/lib/notify.ts`):
+
+- **Email — SMTP.** Set `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`EMAIL_FROM`
+  in `.env` (e.g. your hosting provider's mailbox). If `SMTP_HOST` is blank, emails
+  are logged to the console (handy in dev).
+- **WhatsApp — official Cloud API (optional).** Set `WHATSAPP_PHONE_NUMBER_ID`,
+  `WHATSAPP_ACCESS_TOKEN`, and `WHATSAPP_TEMPLATE_ORDER` (an approved utility
+  template). Requires a verified WhatsApp Business Account. Left blank → disabled
+  (email still sends). PK numbers are auto-normalised to E.164.
+
+  > Note: WhatsApp's official Cloud API has a limited free allowance then charges
+  > per conversation. Unofficial libraries (whatsapp-web.js/Baileys) are free but
+  > violate WhatsApp's ToS and risk bans — not used here.
+
+Notifications never block or fail order placement (errors are logged only).
+
 ## Useful scripts
 
 | Command | Description |

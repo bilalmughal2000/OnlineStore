@@ -13,6 +13,7 @@ import { requireAuth } from '../../middleware/auth';
 import { checkoutLimiter } from '../../middleware/rateLimit';
 import { badRequest, notFound } from '../../lib/errors';
 import { serialize } from '../../lib/serialize';
+import { notifyOrderPlaced } from '../../lib/notify';
 import { priceCart } from './pricing';
 
 export const ordersRouter = Router();
@@ -137,7 +138,13 @@ ordersRouter.post(
 
     // TODO(Phase 4): for STRIPE/JAZZCASH/EASYPAISA, initiate the gateway session
     // here and return a redirect/checkout URL instead of a completed order.
-    // TODO(Phase 3): trigger order-confirmation email + SMS.
+
+    // Order-confirmation notification (email + WhatsApp), best-effort.
+    const buyer = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, phone: true },
+    });
+    if (buyer) notifyOrderPlaced(order, buyer);
 
     res.status(201).json({
       order: serialize(order),
