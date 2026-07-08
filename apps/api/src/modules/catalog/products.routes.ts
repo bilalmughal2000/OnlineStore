@@ -25,7 +25,10 @@ productsRouter.get(
     const where: Prisma.ProductWhereInput = { status: ProductStatus.PUBLISHED };
     const and: Prisma.ProductWhereInput[] = [];
 
-    if (q.category) {
+    if (q.category === 'sale') {
+      // "Sale" is a virtual category: any product with a sale price, from any category.
+      and.push({ salePrice: { not: null } });
+    } else if (q.category) {
       and.push({
         category: {
           OR: [{ slug: q.category }, { parent: { slug: q.category } }],
