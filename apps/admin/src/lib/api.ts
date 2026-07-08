@@ -54,6 +54,19 @@ async function req<T>(path: string, opts: { method?: string; body?: unknown; ret
   return data as T;
 }
 
+// Multipart upload (product images / size-chart images). Returns the hosted URL.
+export async function uploadImage(file: File, folder: 'products' | 'size-charts'): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const headers: Record<string, string> = {};
+  const token = auth.access();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}/admin/uploads?folder=${folder}`, { method: 'POST', headers, body: fd });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, data?.error?.message ?? 'Upload failed');
+  return (data as { url: string }).url;
+}
+
 export const api = {
   get: <T>(p: string) => req<T>(p),
   post: <T>(p: string, body?: unknown) => req<T>(p, { method: 'POST', body }),

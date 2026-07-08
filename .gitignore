@@ -27,6 +27,9 @@ logs/
 # prisma
 packages/database/prisma/*.db
 
+# locally-uploaded images (dev fallback; prod uses Cloudinary)
+apps/api/uploads/
+
 # misc
 coverage/
 .turbo/

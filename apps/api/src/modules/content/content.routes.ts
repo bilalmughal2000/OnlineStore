@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma, Prisma, ProductStatus, SectionType } from '@store/database';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { serialize } from '../../lib/serialize';
+import { cached } from '../../lib/cache';
 import { notFound } from '../../lib/errors';
 
 export const contentRouter = Router();
@@ -15,6 +16,7 @@ const productCardInclude = {
 contentRouter.get(
   '/homepage',
   asyncHandler(async (_req, res) => {
+    const data = await cached('content:homepage', 60, async () => {
     const now = new Date();
     const [sections, banners, categories] = await Promise.all([
       prisma.homepageSection.findMany({
@@ -61,11 +63,13 @@ contentRouter.get(
       }),
     );
 
-    res.json({
-      banners: serialize(banners),
-      sections: serialize(resolved),
-      categories: serialize(categories),
+      return {
+        banners: serialize(banners),
+        sections: serialize(resolved),
+        categories: serialize(categories),
+      };
     });
+    res.json(data);
   }),
 );
 
@@ -73,15 +77,18 @@ contentRouter.get(
 contentRouter.get(
   '/menu',
   asyncHandler(async (_req, res) => {
-    const items = await prisma.menuItem.findMany({
-      where: { isActive: true, parentId: null },
-      include: { children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
-      orderBy: { sortOrder: 'asc' },
+    const data = await cached('content:menu', 300, async () => {
+      const items = await prisma.menuItem.findMany({
+        where: { isActive: true, parentId: null },
+        include: { children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
+        orderBy: { sortOrder: 'asc' },
+      });
+      return {
+        header: items.filter((i) => i.location === 'header'),
+        footer: items.filter((i) => i.location === 'footer'),
+      };
     });
-    res.json({
-      header: items.filter((i) => i.location === 'header'),
-      footer: items.filter((i) => i.location === 'footer'),
-    });
+    res.json(data);
   }),
 );
 
@@ -101,11 +108,13 @@ contentRouter.get(
 contentRouter.get(
   '/settings',
   asyncHandler(async (_req, res) => {
-    const rows = await prisma.setting.findMany({
-      where: { key: { in: ['store', 'shipping', 'payments'] } },
+    const data = await cached('content:settings', 300, async () => {
+      const rows = await prisma.setting.findMany({
+        where: { key: { in: ['store', 'shipping', 'payments'] } },
+      });
+      // Never expose which payment credentials exist — only enabled flags.
+      return { settings: Object.fromEntries(rows.map((r) => [r.key, r.value])) };
     });
-    const settings = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    // Never expose which payment credentials exist — only enabled flags.
-    res.json({ settings });
+    res.json(data);
   }),
 );

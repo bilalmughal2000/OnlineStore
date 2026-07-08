@@ -32,6 +32,9 @@ export function createApp() {
   if (!env.isProd) app.use(morgan('dev'));
   app.use(globalLimiter);
 
+  // Dev-only: serve locally-uploaded images (production uses Cloudinary CDN).
+  app.use('/uploads', express.static('uploads'));
+
   app.use('/api', apiRouter);
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 

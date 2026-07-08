@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '@store/database';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { serialize } from '../../lib/serialize';
+import { cached } from '../../lib/cache';
 import { notFound } from '../../lib/errors';
 
 export const categoriesRouter = Router();
@@ -10,14 +11,17 @@ export const categoriesRouter = Router();
 categoriesRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
-    const parents = await prisma.category.findMany({
-      where: { parentId: null, isActive: true },
-      include: {
-        children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
-      },
-      orderBy: { sortOrder: 'asc' },
+    const data = await cached('categories:all', 300, async () => {
+      const parents = await prisma.category.findMany({
+        where: { parentId: null, isActive: true },
+        include: {
+          children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+        },
+        orderBy: { sortOrder: 'asc' },
+      });
+      return { categories: serialize(parents) };
     });
-    res.json({ categories: serialize(parents) });
+    res.json(data);
   }),
 );
 

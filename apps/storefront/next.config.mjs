@@ -7,6 +7,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'picsum.photos' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
       { protocol: 'https', hostname: '**.amazonaws.com' },
+      // Dev: locally-uploaded images served by the API.
+      { protocol: 'http', hostname: 'localhost', port: '4000' },
     ],
   },
 };

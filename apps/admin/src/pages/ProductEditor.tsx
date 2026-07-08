@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { Plus, Trash2, ArrowLeft, Upload } from 'lucide-react';
+import { api, ApiError, uploadImage } from '@/lib/api';
 
 interface VariantRow {
   id?: string;
@@ -43,6 +43,25 @@ export function ProductEditor() {
   const [categories, setCategories] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (
+    file: File | undefined,
+    folder: 'products' | 'size-charts',
+    onDone: (url: string) => void,
+  ) => {
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const url = await uploadImage(file, folder);
+      onDone(url);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     api.get<{ categories: any[] }>('/admin/categories').then((d) => setCategories(d.categories));
@@ -143,11 +162,26 @@ export function ProductEditor() {
           <div className="card space-y-3 p-5">
             <h2 className="font-semibold">Images</h2>
             <div className="flex gap-2">
-              <input className="input" placeholder="Image URL (Cloudinary/S3)" value={imageInput} onChange={(e) => setImageInput(e.target.value)} />
+              <input className="input" placeholder="Paste image URL, or upload →" value={imageInput} onChange={(e) => setImageInput(e.target.value)} />
               <button type="button" className="btn-outline" onClick={() => { if (imageInput) { setImages([...images, imageInput]); setImageInput(''); } }}>
                 <Plus size={16} /> Add
               </button>
+              <label className="btn-primary cursor-pointer whitespace-nowrap">
+                <Upload size={16} /> Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    files.forEach((f) => handleUpload(f, 'products', (url) => setImages((prev) => [...prev, url])));
+                    e.target.value = '';
+                  }}
+                />
+              </label>
             </div>
+            {uploading && <p className="text-xs text-stone-500">Uploading…</p>}
             <div className="flex flex-wrap gap-3">
               {images.map((url, i) => (
                 <div key={i} className="relative">
@@ -186,9 +220,18 @@ export function ProductEditor() {
             <p className="text-xs text-stone-500">Upload a chart image and/or build a measurements table. Either or both are shown to customers.</p>
 
             <div>
-              <label className="label">Chart image URL (optional)</label>
+              <label className="label">Chart image (upload or paste URL — optional)</label>
               <div className="flex items-center gap-3">
                 <input className="input" placeholder="https://… size chart image" value={sizeChartImage} onChange={(e) => setSizeChartImage(e.target.value)} />
+                <label className="btn-outline cursor-pointer whitespace-nowrap">
+                  <Upload size={16} /> Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => { handleUpload(e.target.files?.[0], 'size-charts', setSizeChartImage); e.target.value = ''; }}
+                  />
+                </label>
                 {sizeChartImage && <img src={sizeChartImage} alt="Size chart" className="h-16 rounded border border-stone-200 object-contain" />}
               </div>
             </div>

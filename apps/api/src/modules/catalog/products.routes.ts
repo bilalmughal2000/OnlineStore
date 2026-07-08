@@ -4,6 +4,7 @@ import { productQuerySchema, type Paginated } from '@store/shared-types';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { serialize } from '../../lib/serialize';
+import { cached } from '../../lib/cache';
 import { notFound } from '../../lib/errors';
 
 export const productsRouter = Router();
@@ -68,24 +69,29 @@ productsRouter.get(
               ? { ratingCount: 'desc' }
               : { createdAt: 'desc' };
 
-    const [total, items] = await Promise.all([
-      prisma.product.count({ where }),
-      prisma.product.findMany({
-        where,
-        include: listInclude,
-        orderBy,
-        skip: (q.page - 1) * q.pageSize,
-        take: q.pageSize,
-      }),
-    ]);
-
-    const result: Paginated<unknown> = {
-      items: serialize(items),
-      total,
-      page: q.page,
-      pageSize: q.pageSize,
-      totalPages: Math.ceil(total / q.pageSize),
-    };
+    const result = await cached<Paginated<unknown>>(
+      `products:list:${JSON.stringify(q)}`,
+      30,
+      async () => {
+        const [total, items] = await Promise.all([
+          prisma.product.count({ where }),
+          prisma.product.findMany({
+            where,
+            include: listInclude,
+            orderBy,
+            skip: (q.page - 1) * q.pageSize,
+            take: q.pageSize,
+          }),
+        ]);
+        return {
+          items: serialize(items),
+          total,
+          page: q.page,
+          pageSize: q.pageSize,
+          totalPages: Math.ceil(total / q.pageSize),
+        };
+      },
+    );
     res.json(result);
   }),
 );
@@ -122,6 +128,7 @@ productsRouter.get(
 productsRouter.get(
   '/:slug',
   asyncHandler(async (req, res) => {
+    const data = await cached(`product:${req.params.slug}`, 60, async () => {
     const product = await prisma.product.findFirst({
       where: { slug: req.params.slug, status: ProductStatus.PUBLISHED },
       include: {
@@ -149,6 +156,8 @@ productsRouter.get(
       take: 4,
     });
 
-    res.json({ product: serialize(product), related: serialize(related) });
+      return { product: serialize(product), related: serialize(related) };
+    });
+    res.json(data);
   }),
 );
