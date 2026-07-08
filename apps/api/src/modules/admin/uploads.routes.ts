@@ -30,6 +30,12 @@ if (cloudinaryConfigured) {
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
+} else if (process.env.NODE_ENV === 'production') {
+  // Guard against shipping disk storage: images on the VPS have no CDN/redundancy.
+  console.warn(
+    '[uploads] Cloudinary is NOT configured — uploads will be stored on local disk. ' +
+      'Set CLOUDINARY_* in production so images live on a CDN.',
+  );
 }
 
 // Local dev fallback directory (served statically at /uploads). NOT for production
