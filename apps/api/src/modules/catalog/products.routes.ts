@@ -127,6 +127,27 @@ productsRouter.get(
   }),
 );
 
+// GET /products/:slug/reviews — approved reviews, always fresh (no cache) so
+// admin moderation (hide/show/delete) reflects immediately on the storefront.
+productsRouter.get(
+  '/:slug/reviews',
+  asyncHandler(async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const product = await prisma.product.findFirst({
+      where: { slug: req.params.slug },
+      select: { id: true, ratingAvg: true, ratingCount: true },
+    });
+    if (!product) throw notFound('Product not found');
+    const reviews = await prisma.review.findMany({
+      where: { productId: product.id, isApproved: true },
+      include: { user: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.json({ reviews: serialize(reviews), ratingAvg: product.ratingAvg, ratingCount: product.ratingCount });
+  }),
+);
+
 // GET /products/:slug — full PDP detail + related
 productsRouter.get(
   '/:slug',

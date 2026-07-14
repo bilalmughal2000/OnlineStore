@@ -57,6 +57,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
       <ProductReviews
         productId={product.id}
+        slug={product.slug}
         initialReviews={product.reviews ?? []}
         ratingAvg={product.ratingAvg}
         ratingCount={product.ratingCount}

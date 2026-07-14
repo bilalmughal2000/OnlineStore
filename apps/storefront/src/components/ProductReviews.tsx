@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Star, BadgeCheck } from 'lucide-react';
 import type { Review } from '@/lib/types';
@@ -23,17 +23,28 @@ function initials(name: string) {
 
 export function ProductReviews({
   productId,
+  slug,
   initialReviews,
   ratingAvg,
   ratingCount,
 }: {
   productId: string;
+  slug: string;
   initialReviews: Review[];
   ratingAvg: number;
   ratingCount: number;
 }) {
   const { user, showToast } = useStore();
   const [reviews, setReviews] = useState<Review[]>(initialReviews);
+
+  // Refresh from the uncached endpoint on mount so admin moderation
+  // (hide/show/delete) is reflected immediately, bypassing page caching.
+  useEffect(() => {
+    clientApi
+      .get<{ reviews: Review[] }>(`/products/${slug}/reviews`)
+      .then((d) => setReviews(d.reviews))
+      .catch(() => {});
+  }, [slug]);
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState('');
