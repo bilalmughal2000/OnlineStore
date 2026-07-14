@@ -139,7 +139,7 @@ export function ProductEditor() {
     setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
   return (
-    <form onSubmit={save} className="max-w-4xl">
+    <form onSubmit={save} className="max-w-6xl">
       <button type="button" onClick={() => navigate('/products')} className="mb-4 flex items-center gap-1 text-sm text-stone-500">
         <ArrowLeft size={16} /> Back
       </button>
