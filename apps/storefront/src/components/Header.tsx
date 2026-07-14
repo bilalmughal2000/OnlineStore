@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useStore } from '@/providers/StoreProvider';
+import { clientApi } from '@/lib/client-api';
 
 interface MenuLink {
   id: string;
@@ -17,6 +18,15 @@ export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; store
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+  // Refresh the promo text fresh on the client so admin edits show immediately,
+  // regardless of page (ISR/CDN) caching. Starts from the SSR value.
+  const [promo, setPromo] = useState<string | undefined>(promoText);
+  useEffect(() => {
+    clientApi
+      .get<{ settings: { store?: { promoText?: string } } }>(`/content/settings?_=${Date.now()}`)
+      .then((d) => setPromo(d.settings?.store?.promoText ?? ''))
+      .catch(() => {});
+  }, []);
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +35,7 @@ export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; store
 
   return (
     <header className="z-40 shrink-0 border-b border-black/5 bg-cream/95 backdrop-blur">
-      {promoText && <div className="bg-ink py-2 text-center text-xs text-white">{promoText}</div>}
+      {promo && <div className="bg-ink py-2 text-center text-xs text-white">{promo}</div>}
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Menu">
           <Menu />
