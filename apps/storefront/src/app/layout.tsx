@@ -5,6 +5,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PageBack } from '@/components/PageBack';
 import { api } from '@/lib/api';
+import { THEMES, DEFAULT_THEME } from '@store/shared-types';
 
 export const metadata: Metadata = {
   title: { default: 'Aabroo — Modern Pakistani Fashion', template: '%s · Aabroo' },
@@ -27,16 +28,29 @@ async function getShell() {
       header,
       footer,
       storeName: (settings?.store?.name as string) ?? 'Aabroo',
+      themeKey: (settings?.store?.theme as string) ?? DEFAULT_THEME,
     };
   } catch {
-    return { header: [], footer: [], storeName: 'Aabroo' };
+    return { header: [], footer: [], storeName: 'Aabroo', themeKey: DEFAULT_THEME };
   }
 }
 
+function themeVars(key: string): React.CSSProperties {
+  const c = (THEMES[key] ?? THEMES[DEFAULT_THEME]).colors;
+  return {
+    '--ink': c.ink,
+    '--cream': c.cream,
+    '--accent': c.accent,
+    '--accent-dark': c.accentDark,
+    '--accent-light': c.accentLight,
+    '--sale': c.sale,
+  } as React.CSSProperties;
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { header, footer, storeName } = await getShell();
+  const { header, footer, storeName, themeKey } = await getShell();
   return (
-    <html lang="en">
+    <html lang="en" style={themeVars(themeKey)}>
       <head>
         {/* Warm up the connection to the image CDN (LCP hero image lives here). */}
         <link rel="preconnect" href="https://picsum.photos" crossOrigin="" />

@@ -6,15 +6,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Neutral base + one strong accent (terracotta) per the design direction.
-        ink: '#1c1917',
-        cream: '#faf7f2',
+        // Driven by CSS variables so the admin-selected theme re-skins the whole
+        // storefront at runtime (see :root in globals.css + <html> vars in layout).
+        ink: 'rgb(var(--ink) / <alpha-value>)',
+        cream: 'rgb(var(--cream) / <alpha-value>)',
         accent: {
-          DEFAULT: '#b45309',
-          dark: '#92400e',
-          light: '#f59e0b',
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
+          dark: 'rgb(var(--accent-dark) / <alpha-value>)',
+          light: 'rgb(var(--accent-light) / <alpha-value>)',
         },
-        sale: '#be123c',
+        sale: 'rgb(var(--sale) / <alpha-value>)',
       },
       fontFamily: {
         serif: ['Georgia', 'Cambria', '"Times New Roman"', 'serif'],

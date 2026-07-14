@@ -4,6 +4,14 @@
 
 :root {
   color-scheme: light;
+  /* Default theme (Terracotta) — RGB channels. The layout overrides these on
+     <html> with the admin-selected theme. */
+  --ink: 28 25 23;
+  --cream: 250 247 242;
+  --accent: 180 83 9;
+  --accent-dark: 146 64 14;
+  --accent-light: 245 158 11;
+  --sale: 190 18 60;
 }
 
 body {
@@ -69,7 +77,7 @@ select.input option {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: rgba(180, 83, 9, 0.55) transparent; /* accent thumb, clear track */
+  scrollbar-color: rgb(var(--accent) / 0.55) transparent; /* accent thumb, clear track */
   scroll-behavior: smooth;
   overscroll-behavior: contain;
 }
@@ -81,13 +89,13 @@ select.input option {
   background: transparent;
 }
 .app-scroll::-webkit-scrollbar-thumb {
-  background: rgba(180, 83, 9, 0.5); /* accent @ 50% */
+  background: rgb(var(--accent) / 0.5);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 .app-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(146, 64, 14, 0.85); /* accent-dark */
+  background: rgb(var(--accent-dark) / 0.85);
   background-clip: content-box;
 }
 

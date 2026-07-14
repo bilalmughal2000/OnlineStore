@@ -361,7 +361,7 @@ async function main() {
   // ── Settings ─────────────────────────────────────────────────
   await prisma.setting.createMany({
     data: [
-      { key: 'store', value: { name: 'Aabroo', currency: 'PKR', tagline: 'Modern Pakistani Fashion' } },
+      { key: 'store', value: { name: 'Aabroo', currency: 'PKR', tagline: 'Modern Pakistani Fashion', theme: 'terracotta' } },
       { key: 'shipping', value: { flatRate: 200, freeShippingThreshold: 3000 } },
       { key: 'payments', value: { cod: true, stripe: false, jazzcash: false, easypaisa: false, codMaxValue: 20000 } },
       { key: 'tax', value: { enabled: false, rate: 0 } },
