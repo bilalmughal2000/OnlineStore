@@ -166,7 +166,10 @@ adminMarketingRouter.delete(
 adminMarketingRouter.get(
   '/reviews',
   asyncHandler(async (req, res) => {
-    const where = req.query.pending === 'true' ? { isApproved: false } : {};
+    // filter: 'visible' | 'hidden' | undefined (all)
+    const filter = String(req.query.filter ?? '');
+    const where =
+      filter === 'visible' ? { isApproved: true } : filter === 'hidden' ? { isApproved: false } : {};
     const reviews = await prisma.review.findMany({
       where,
       include: { user: { select: { name: true } }, product: { select: { title: true, slug: true } } },
@@ -198,7 +201,17 @@ adminMarketingRouter.patch(
 adminMarketingRouter.delete(
   '/reviews/:id',
   asyncHandler(async (req, res) => {
-    await prisma.review.delete({ where: { id: req.params.id } });
+    const review = await prisma.review.delete({ where: { id: req.params.id } });
+    // Recompute the product's rating aggregate after removal.
+    const agg = await prisma.review.aggregate({
+      where: { productId: review.productId, isApproved: true },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    await prisma.product.update({
+      where: { id: review.productId },
+      data: { ratingAvg: agg._avg.rating ?? 0, ratingCount: agg._count._all },
+    });
     res.json({ ok: true });
   }),
 );
