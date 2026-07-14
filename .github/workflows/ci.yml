@@ -34,8 +34,11 @@ jobs:
       # Prisma scripts load ../../.env via dotenv-cli — provide it from CI env.
       - name: Write .env
         run: printf 'DATABASE_URL=%s\nDIRECT_DATABASE_URL=%s\n' "$DATABASE_URL" "$DIRECT_DATABASE_URL" > .env
-      - run: npm run build -w @store/shared-types
-      - run: npm run generate -w @store/database
+      # Build workspace packages first: emits @store/shared-types and
+      # @store/database dist (+ generates the Prisma client) so the API can
+      # resolve them during typecheck/build.
+      - name: Build packages
+        run: npm run build:packages
       - name: Apply migrations
         run: npm run migrate:deploy -w @store/database
       - name: Typecheck API
