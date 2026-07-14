@@ -13,6 +13,7 @@ import { Sections } from '@/pages/Sections';
 import { Customers } from '@/pages/Customers';
 import { Users } from '@/pages/Users';
 import { Reviews } from '@/pages/Reviews';
+import { Pages } from '@/pages/Pages';
 import { Settings } from '@/pages/Settings';
 
 export function App() {
@@ -44,6 +45,7 @@ export function App() {
         <Route path="customers" element={<Customers />} />
         <Route path="users" element={<Users />} />
         <Route path="reviews" element={<Reviews />} />
+        <Route path="pages" element={<Pages />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

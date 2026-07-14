@@ -21,7 +21,7 @@ export default async function StaticPage({ params }: { params: { slug: string } 
   return (
     <div className="container-x max-w-3xl py-12">
       <h1 className="mb-6 font-serif text-4xl font-bold">{page!.title}</h1>
-      <div className="prose max-w-none whitespace-pre-line text-ink/80">{page!.content}</div>
+      <div className="prose max-w-none text-ink/80" dangerouslySetInnerHTML={{ __html: page!.content }} />
     </div>
   );
 }

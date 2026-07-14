@@ -9,6 +9,7 @@ import {
   Users,
   UserCog,
   Star,
+  FileText,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ const NAV = [
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/users', label: 'Users', icon: UserCog },
   { to: '/reviews', label: 'Reviews', icon: Star },
+  { to: '/pages', label: 'Pages', icon: FileText },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
