@@ -6,7 +6,7 @@ import { Heart, Minus, Plus, Star, Truck } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { discountPct, effectivePrice, formatPKR } from '@/lib/format';
 import { useStore } from '@/providers/StoreProvider';
-import { clientApi, ApiError } from '@/lib/client-api';
+import { ApiError } from '@/lib/client-api';
 import { SizeChartModal } from './SizeChartModal';
 
 type FullProduct = Product & { reviews?: any[] };
@@ -14,7 +14,8 @@ type FullProduct = Product & { reviews?: any[] };
 const TABS = ['Description', 'Size & Fit', 'Fabric & Care', 'Shipping & Returns'] as const;
 
 export function ProductDetail({ product }: { product: FullProduct }) {
-  const { addToCart, user, showToast } = useStore();
+  const { addToCart, showToast, toggleWishlist, isWishlisted } = useStore();
+  const wl = isWishlisted(product.id);
 
   const sizes = useMemo(
     () => [...new Set(product.variants.map((v) => v.size).filter(Boolean))] as string[],
@@ -50,16 +51,6 @@ export function ProductDetail({ product }: { product: FullProduct }) {
       showToast(e instanceof ApiError ? e.message : 'Could not add to cart');
     } finally {
       setBusy(false);
-    }
-  };
-
-  const addToWishlist = async () => {
-    if (!user) return showToast('Please log in to save items');
-    try {
-      await clientApi.post('/account/wishlist', { productId: product.id });
-      showToast('Saved to wishlist');
-    } catch {
-      showToast('Could not save');
     }
   };
 
@@ -197,8 +188,13 @@ export function ProductDetail({ product }: { product: FullProduct }) {
           <button onClick={handleAdd} disabled={busy || stock === 0} className="btn-primary flex-1">
             {stock === 0 ? 'Sold Out' : busy ? 'Adding…' : 'Add to Cart'}
           </button>
-          <button onClick={addToWishlist} className="btn-outline" aria-label="Wishlist">
-            <Heart size={18} />
+          <button
+            onClick={() => toggleWishlist(product.id)}
+            className="btn-outline"
+            aria-label={wl ? 'Remove from wishlist' : 'Add to wishlist'}
+            aria-pressed={wl}
+          >
+            <Heart size={18} className={wl ? 'fill-sale text-sale' : ''} />
           </button>
         </div>
 

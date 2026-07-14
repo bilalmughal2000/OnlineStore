@@ -18,6 +18,9 @@ interface StoreState {
   addToCart: (variantId: string, quantity?: number) => Promise<void>;
   updateQty: (variantId: string, quantity: number) => Promise<void>;
   removeItem: (variantId: string) => Promise<void>;
+  wishlist: Set<string>;
+  isWishlisted: (productId: string) => boolean;
+  toggleWishlist: (productId: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreState | null>(null);
@@ -27,10 +30,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  const loadWishlist = useCallback(async () => {
+    try {
+      const { items } = await clientApi.get<{ items: { productId: string }[] }>('/account/wishlist');
+      setWishlist(new Set(items.map((i) => i.productId)));
+    } catch {
+      setWishlist(new Set());
+    }
   }, []);
 
   const refreshCart = useCallback(async () => {
@@ -49,6 +62,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const { user } = await clientApi.get<{ user: AuthUser }>('/auth/me');
           setUser(user);
+          await loadWishlist();
         } catch {
           tokenStore.clear();
         }
@@ -56,7 +70,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       await refreshCart();
       setLoading(false);
     })();
-  }, [refreshCart]);
+  }, [refreshCart, loadWishlist]);
 
   const afterAuth = useCallback(
     async (data: { user: AuthUser; accessToken: string; refreshToken: string }) => {
@@ -69,8 +83,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         /* no guest cart to merge */
       }
       await refreshCart();
+      await loadWishlist();
     },
-    [refreshCart],
+    [refreshCart, loadWishlist],
   );
 
   const login = useCallback(
@@ -97,6 +112,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     tokenStore.clear();
     setUser(null);
+    setWishlist(new Set());
     await refreshCart();
   }, [refreshCart]);
 
@@ -119,6 +135,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCart(c);
   }, []);
 
+  const isWishlisted = useCallback((productId: string) => wishlist.has(productId), [wishlist]);
+
+  const toggleWishlist = useCallback(
+    async (productId: string) => {
+      if (!user) {
+        showToast('Please log in to save items');
+        return;
+      }
+      const adding = !wishlist.has(productId);
+      // Optimistic update for instant heart feedback.
+      setWishlist((prev) => {
+        const next = new Set(prev);
+        adding ? next.add(productId) : next.delete(productId);
+        return next;
+      });
+      try {
+        if (adding) await clientApi.post('/account/wishlist', { productId });
+        else await clientApi.del(`/account/wishlist/${productId}`);
+        showToast(adding ? 'Saved to wishlist' : 'Removed from wishlist');
+      } catch {
+        // Revert on failure.
+        setWishlist((prev) => {
+          const next = new Set(prev);
+          adding ? next.delete(productId) : next.add(productId);
+          return next;
+        });
+        showToast('Could not update wishlist');
+      }
+    },
+    [user, wishlist, showToast],
+  );
+
   const value = useMemo<StoreState>(
     () => ({
       user,
@@ -134,8 +182,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addToCart,
       updateQty,
       removeItem,
+      wishlist,
+      isWishlisted,
+      toggleWishlist,
     }),
-    [user, cart, loading, toast, showToast, login, register, logout, refreshCart, addToCart, updateQty, removeItem],
+    [user, cart, loading, toast, showToast, login, register, logout, refreshCart, addToCart, updateQty, removeItem, wishlist, isWishlisted, toggleWishlist],
   );
 
   return (
