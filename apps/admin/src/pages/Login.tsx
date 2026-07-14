@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
+import { PasswordInput } from '@/components/PasswordInput';
 
 export function Login() {
   const { login } = useAuth();
@@ -35,7 +36,7 @@ export function Login() {
           </div>
           <div>
             <label className="label">Password</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           {error && <p className="rounded bg-red-50 p-2 text-sm text-red-600">{error}</p>}
           <button disabled={busy} className="btn-primary w-full">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/providers/StoreProvider';
 import { ApiError } from '@/lib/client-api';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 
 function LoginInner() {
   const { login, register } = useStore();
@@ -60,7 +61,7 @@ function LoginInner() {
           )}
           <div>
             <label className="label">Password</label>
-            <input type="password" className="input" value={form.password} onChange={set('password')} required minLength={8} />
+            <PasswordInput value={form.password} onChange={set('password')} required minLength={8} />
           </div>
 
           {error && <p className="rounded bg-sale/10 p-2 text-sm text-sale">{error}</p>}

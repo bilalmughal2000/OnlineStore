@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi, ApiError } from '@/lib/client-api';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 
 export default function ProfilePage() {
   const { user, loading } = useStore();
@@ -52,8 +53,8 @@ export default function ProfilePage() {
 
       <form onSubmit={changePw} className="card space-y-4 p-5">
         <h2 className="font-semibold">Change password</h2>
-        <div><label className="label">Current password</label><input type="password" className="input" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} required /></div>
-        <div><label className="label">New password</label><input type="password" className="input" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} minLength={8} required /></div>
+        <div><label className="label">Current password</label><PasswordInput value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} required /></div>
+        <div><label className="label">New password</label><PasswordInput value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} minLength={8} required /></div>
         <button className="btn-outline">Update password</button>
       </form>
     </div>
