@@ -6,25 +6,21 @@ import { useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useStore } from '@/providers/StoreProvider';
 import { formatPKR } from '@/lib/format';
-import { clientApi, ApiError } from '@/lib/client-api';
-import type { Cart } from '@/lib/types';
+import { ApiError } from '@/lib/client-api';
 
 export default function CartPage() {
-  const { cart, updateQty, removeItem, refreshCart } = useStore();
+  const { cart, updateQty, removeItem, applyCoupon, removeCoupon } = useStore();
   const [coupon, setCoupon] = useState('');
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
-  const [applied, setApplied] = useState<Cart | null>(null);
 
-  const view = applied ?? cart;
+  const view = cart;
 
-  const applyCoupon = async () => {
+  const handleApply = async () => {
     setCouponMsg(null);
     try {
-      const c = await clientApi.get<Cart>(`/cart?coupon=${encodeURIComponent(coupon)}`);
-      setApplied(c);
-      setCouponMsg(c.couponCode ? `Coupon ${c.couponCode} applied` : 'Coupon applied');
+      await applyCoupon(coupon);
+      setCoupon('');
     } catch (e) {
-      setApplied(null);
       setCouponMsg(e instanceof ApiError ? e.message : 'Invalid coupon');
     }
   };
@@ -81,7 +77,7 @@ export default function CartPage() {
                         className="p-2"
                         onClick={async () => {
                           await updateQty(line.variantId, Math.max(0, line.quantity - 1));
-                          setApplied(null);
+
                         }}
                       >
                         <Minus size={14} />
@@ -92,7 +88,6 @@ export default function CartPage() {
                         disabled={line.quantity >= line.stock}
                         onClick={async () => {
                           await updateQty(line.variantId, line.quantity + 1);
-                          setApplied(null);
                         }}
                       >
                         <Plus size={14} />
@@ -102,7 +97,6 @@ export default function CartPage() {
                       className="text-ink/50 hover:text-sale"
                       onClick={async () => {
                         await removeItem(line.variantId);
-                        setApplied(null);
                       }}
                     >
                       <Trash2 size={16} />
@@ -118,18 +112,30 @@ export default function CartPage() {
         {/* Summary */}
         <div className="card h-fit p-5">
           <h2 className="mb-4 font-serif text-xl font-bold">Order Summary</h2>
-          <div className="mb-3 flex gap-2">
-            <input
-              value={coupon}
-              onChange={(e) => setCoupon(e.target.value)}
-              placeholder="Coupon code"
-              className="input"
-            />
-            <button onClick={applyCoupon} className="btn-outline whitespace-nowrap">
-              Apply
-            </button>
-          </div>
-          {couponMsg && <p className="mb-3 text-sm text-accent">{couponMsg}</p>}
+          {view.couponCode ? (
+            <div className="mb-3 flex items-center justify-between rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
+              <span>
+                Coupon <strong>{view.couponCode}</strong> applied
+              </span>
+              <button onClick={() => removeCoupon()} className="text-ink/50 hover:text-sale" aria-label="Remove coupon">
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ) : (
+            <div className="mb-3 flex gap-2">
+              <input
+                value={coupon}
+                onChange={(e) => setCoupon(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleApply()}
+                placeholder="Coupon code"
+                className="input"
+              />
+              <button onClick={handleApply} className="btn-outline whitespace-nowrap">
+                Apply
+              </button>
+            </div>
+          )}
+          {couponMsg && <p className="mb-3 text-sm text-sale">{couponMsg}</p>}
 
           <dl className="space-y-2 text-sm">
             <Row label="Subtotal" value={formatPKR(view.subtotal)} />
@@ -140,7 +146,7 @@ export default function CartPage() {
             <Row label="Total" value={formatPKR(view.total)} bold />
           </dl>
 
-          <Link href={`/checkout${view.couponCode ? `?coupon=${view.couponCode}` : ''}`} className="btn-primary mt-5 w-full">
+          <Link href="/checkout" className="btn-primary mt-5 w-full">
             Proceed to Checkout
           </Link>
         </div>

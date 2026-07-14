@@ -14,13 +14,23 @@ export const cartRouter = Router();
 // All cart routes work for guests (via x-guest-id) or logged-in users.
 cartRouter.use(optionalAuth);
 
-async function respondWithCart(cartId: string, res: import('express').Response, couponCode?: string) {
-  const items = await prisma.cartItem.findMany({ where: { cartId } });
-  const pricing = await priceCart(
-    items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
-    { couponCode },
-  );
-  res.json({ cartId, ...pricing });
+// Prices the cart using the coupon persisted ON the cart. If that coupon has
+// become invalid (expired / limit reached / cart no longer meets minimum), it's
+// silently cleared so the cart still loads.
+async function respondWithCart(cartId: string, res: import('express').Response, userId?: string) {
+  const cart = await prisma.cart.findUnique({ where: { id: cartId }, include: { items: true } });
+  if (!cart) return res.json({ cartId, lines: [], subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, couponCode: null, freeShippingThreshold: 0, amountToFreeShipping: 0 });
+
+  const items = cart.items.map((i) => ({ variantId: i.variantId, quantity: i.quantity }));
+  try {
+    const pricing = await priceCart(items, { couponCode: cart.couponCode, userId });
+    res.json({ cartId, ...pricing });
+  } catch {
+    // Stored coupon no longer valid — drop it and re-price without it.
+    if (cart.couponCode) await prisma.cart.update({ where: { id: cartId }, data: { couponCode: null } });
+    const pricing = await priceCart(items, { userId });
+    res.json({ cartId, ...pricing });
+  }
 }
 
 // GET /cart
@@ -28,7 +38,34 @@ cartRouter.get(
   '/',
   asyncHandler(async (req, res) => {
     const cart = await resolveCart(req);
-    await respondWithCart(cart.id, res, req.query.coupon ? String(req.query.coupon) : undefined);
+    await respondWithCart(cart.id, res, req.auth?.userId);
+  }),
+);
+
+// POST /cart/coupon — validate + persist a coupon on the cart
+cartRouter.post(
+  '/coupon',
+  validate(z.object({ code: z.string().min(1) })),
+  asyncHandler(async (req, res) => {
+    const cart = await resolveCart(req);
+    const items = await prisma.cartItem.findMany({ where: { cartId: cart.id } });
+    // Throws (400) if the coupon is invalid for this cart — surfaced to the user.
+    await priceCart(
+      items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+      { couponCode: req.body.code, userId: req.auth?.userId },
+    );
+    await prisma.cart.update({ where: { id: cart.id }, data: { couponCode: req.body.code.toUpperCase() } });
+    await respondWithCart(cart.id, res, req.auth?.userId);
+  }),
+);
+
+// DELETE /cart/coupon — remove the applied coupon
+cartRouter.delete(
+  '/coupon',
+  asyncHandler(async (req, res) => {
+    const cart = await resolveCart(req);
+    await prisma.cart.update({ where: { id: cart.id }, data: { couponCode: null } });
+    await respondWithCart(cart.id, res, req.auth?.userId);
   }),
 );
 
@@ -52,7 +89,7 @@ cartRouter.post(
       update: { quantity: nextQty },
       create: { cartId: cart.id, variantId: variant.id, quantity: req.body.quantity },
     });
-    await respondWithCart(cart.id, res);
+    await respondWithCart(cart.id, res, req.auth?.userId);
   }),
 );
 
@@ -74,7 +111,7 @@ cartRouter.patch(
         data: { quantity },
       });
     }
-    await respondWithCart(cart.id, res);
+    await respondWithCart(cart.id, res, req.auth?.userId);
   }),
 );
 
@@ -84,7 +121,7 @@ cartRouter.delete(
   asyncHandler(async (req, res) => {
     const cart = await resolveCart(req);
     await prisma.cartItem.deleteMany({ where: { cartId: cart.id, variantId: req.params.variantId } });
-    await respondWithCart(cart.id, res);
+    await respondWithCart(cart.id, res, req.auth?.userId);
   }),
 );
 
@@ -94,7 +131,7 @@ cartRouter.delete(
   asyncHandler(async (req, res) => {
     const cart = await resolveCart(req);
     await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
-    await respondWithCart(cart.id, res);
+    await respondWithCart(cart.id, res, req.auth?.userId);
   }),
 );
 
@@ -106,6 +143,6 @@ cartRouter.post(
   asyncHandler(async (req, res) => {
     await mergeGuestCart(req.auth!.userId, req.body.guestSessionId);
     const cart = await resolveCart(req);
-    await respondWithCart(cart.id, res);
+    await respondWithCart(cart.id, res, req.auth?.userId);
   }),
 );

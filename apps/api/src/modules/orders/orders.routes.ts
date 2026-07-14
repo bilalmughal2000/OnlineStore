@@ -58,9 +58,10 @@ ordersRouter.post(
     if (!address) throw notFound('Address not found');
 
     // Authoritative server-side pricing (never trust client totals).
+    // Use the coupon persisted on the cart (falls back to the request body).
     const pricing = await priceCart(
       cart.items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
-      { couponCode: body.couponCode, userId },
+      { couponCode: cart.couponCode ?? body.couponCode, userId },
     );
     if (pricing.lines.length === 0) throw badRequest('Your cart is empty');
 
@@ -131,8 +132,9 @@ ordersRouter.post(
           data: { usedCount: { increment: 1 } },
         });
       }
-      // Clear the cart.
+      // Clear the cart (items + applied coupon).
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+      if (cart.couponCode) await tx.cart.update({ where: { id: cart.id }, data: { couponCode: null } });
       return created;
     });
 

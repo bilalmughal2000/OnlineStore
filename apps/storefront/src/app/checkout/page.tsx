@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { PROVINCES } from '@store/shared-types';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi, ApiError } from '@/lib/client-api';
@@ -17,9 +17,8 @@ const PAYMENTS = [
   { id: 'STRIPE', label: 'Card (Stripe)', desc: 'International cards (coming soon)', enabled: false },
 ];
 
-function CheckoutInner() {
+export default function CheckoutPage() {
   const router = useRouter();
-  const params = useSearchParams();
   const { cart, user, loading } = useStore();
   const [form, setForm] = useState({
     fullName: '',
@@ -54,7 +53,6 @@ function CheckoutInner() {
       const res = await clientApi.post<{ order: { id: string } }>('/orders/checkout', {
         paymentMethod: payment,
         deliveryMethod: delivery,
-        couponCode: params.get('coupon') ?? undefined,
         notes: notes || undefined,
         newAddress: { label: 'Home', ...form },
       });
@@ -182,13 +180,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="label">{label}</label>
       {children}
     </div>
-  );
-}
-
-export default function CheckoutPage() {
-  return (
-    <Suspense fallback={<div className="container-x py-20 text-center">Loading…</div>}>
-      <CheckoutInner />
-    </Suspense>
   );
 }

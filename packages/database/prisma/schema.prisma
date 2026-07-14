@@ -242,6 +242,7 @@ model Cart {
   id             String     @id @default(cuid())
   userId         String?    @unique
   guestSessionId String?    @unique
+  couponCode     String?    // applied coupon, persisted so cart & checkout stay in sync
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 

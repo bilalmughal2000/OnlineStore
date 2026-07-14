@@ -18,6 +18,8 @@ interface StoreState {
   addToCart: (variantId: string, quantity?: number) => Promise<void>;
   updateQty: (variantId: string, quantity: number) => Promise<void>;
   removeItem: (variantId: string) => Promise<void>;
+  applyCoupon: (code: string) => Promise<void>;
+  removeCoupon: () => Promise<void>;
   wishlist: Set<string>;
   isWishlisted: (productId: string) => boolean;
   toggleWishlist: (productId: string) => Promise<void>;
@@ -135,6 +137,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCart(c);
   }, []);
 
+  const applyCoupon = useCallback(async (code: string) => {
+    // Throws ApiError with the reason if invalid — caller surfaces it.
+    const c = await clientApi.post<Cart>('/cart/coupon', { code });
+    setCart(c);
+  }, []);
+
+  const removeCoupon = useCallback(async () => {
+    const c = await clientApi.del<Cart>('/cart/coupon');
+    setCart(c);
+  }, []);
+
   const isWishlisted = useCallback((productId: string) => wishlist.has(productId), [wishlist]);
 
   const toggleWishlist = useCallback(
@@ -182,11 +195,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addToCart,
       updateQty,
       removeItem,
+      applyCoupon,
+      removeCoupon,
       wishlist,
       isWishlisted,
       toggleWishlist,
     }),
-    [user, cart, loading, toast, showToast, login, register, logout, refreshCart, addToCart, updateQty, removeItem, wishlist, isWishlisted, toggleWishlist],
+    [user, cart, loading, toast, showToast, login, register, logout, refreshCart, addToCart, updateQty, removeItem, applyCoupon, removeCoupon, wishlist, isWishlisted, toggleWishlist],
   );
 
   return (

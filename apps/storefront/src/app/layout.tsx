@@ -3,6 +3,7 @@ import './globals.css';
 import { StoreProvider } from '@/providers/StoreProvider';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { PageBack } from '@/components/PageBack';
 import { api } from '@/lib/api';
 
 export const metadata: Metadata = {
@@ -45,7 +46,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <StoreProvider>
           <Header menu={header} storeName={storeName} />
           {/* Only this middle region scrolls; header + footer stay fixed. */}
-          <main className="app-scroll flex-1">{children}</main>
+          <main className="app-scroll flex-1">
+            <PageBack />
+            {children}
+          </main>
           <Footer links={footer} storeName={storeName} />
         </StoreProvider>
       </body>
