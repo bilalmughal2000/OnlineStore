@@ -87,19 +87,26 @@ contentRouter.get(
   }),
 );
 
-// GET /content/menu — header + footer menus
+// GET /content/menu — header nav is driven by top-level categories (so adding a
+// category in the admin shows it in the navbar automatically); footer uses the
+// managed footer menu items (static pages).
 contentRouter.get(
   '/menu',
   asyncHandler(async (_req, res) => {
-    const data = await cached('content:menu', 300, async () => {
-      const items = await prisma.menuItem.findMany({
-        where: { isActive: true, parentId: null },
-        include: { children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
-        orderBy: { sortOrder: 'asc' },
-      });
+    const data = await cached('content:menu', 60, async () => {
+      const [categories, footerItems] = await Promise.all([
+        prisma.category.findMany({
+          where: { parentId: null, isActive: true },
+          orderBy: { sortOrder: 'asc' },
+        }),
+        prisma.menuItem.findMany({
+          where: { isActive: true, location: 'footer', parentId: null },
+          orderBy: { sortOrder: 'asc' },
+        }),
+      ]);
       return {
-        header: items.filter((i) => i.location === 'header'),
-        footer: items.filter((i) => i.location === 'footer'),
+        header: categories.map((c) => ({ id: c.id, label: c.name, url: `/category/${c.slug}` })),
+        footer: footerItems,
       };
     });
     res.json(data);

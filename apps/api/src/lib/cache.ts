@@ -8,7 +8,9 @@ const VERSION_KEY = 'store:cacheVersion';
 
 async function versionedKey(redis: ReturnType<typeof getRedis>, key: string): Promise<string | null> {
   try {
-    const v = (await redis.get(VERSION_KEY)) ?? '1';
+    // Default to '0' so the first INCR (which yields 1 on a missing key) actually
+    // changes the namespace and invalidates the initial cache.
+    const v = (await redis.get(VERSION_KEY)) ?? '0';
     return `cache:v${v}:${key}`;
   } catch {
     return null; // Redis down — skip caching entirely
