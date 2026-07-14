@@ -220,6 +220,60 @@ async function main() {
     createdProducts.push({ id: product.id, slug: product.slug });
   }
 
+  // ── Reviews ──────────────────────────────────────────────────
+  const reviewerNames = ['Sana Malik', 'Bilal Ahmed', 'Hira Fatima', 'Usman Tariq', 'Zara Sheikh', 'Ali Raza'];
+  const reviewers = [];
+  for (const [i, name] of reviewerNames.entries()) {
+    reviewers.push(
+      await prisma.user.create({
+        data: {
+          name,
+          email: `reviewer${i + 1}@store.pk`,
+          passwordHash: await bcrypt.hash('password123', 10),
+          role: Role.CUSTOMER,
+        },
+      }),
+    );
+  }
+
+  const comments5 = [
+    'Absolutely love it! The fabric quality is amazing and the fit is perfect.',
+    'Exceeded my expectations. Fast delivery and beautiful stitching.',
+    'Best purchase this season — highly recommend to everyone!',
+    'Gorgeous colours and very comfortable. Will order again.',
+    'Premium quality at a great price. 10/10.',
+  ];
+  const comments4 = [
+    'Really good quality, though delivery took a day longer than expected.',
+    'Nice product, fits well. Colour slightly different from the photo.',
+    'Happy with the purchase overall. Good value for money.',
+  ];
+  const comments3 = ['Decent quality but the size runs a little small.', 'It’s okay — average fabric, but the design is nice.'];
+
+  for (const [pi, product] of createdProducts.entries()) {
+    // 2–4 reviews per product, weighted towards higher ratings, some perfect 5s.
+    const n = 2 + (pi % 3);
+    for (let r = 0; r < n; r++) {
+      const reviewer = reviewers[(pi + r) % reviewers.length];
+      const rating = r === 0 ? 5 : [5, 5, 4, 4, 3][(pi + r) % 5];
+      const comment =
+        rating === 5 ? comments5[(pi + r) % comments5.length] : rating === 4 ? comments4[r % comments4.length] : comments3[r % comments3.length];
+      await prisma.review.create({
+        data: { productId: product.id, userId: reviewer.id, rating, comment, isApproved: true },
+      });
+    }
+    // Recompute the product's rating aggregate from real reviews.
+    const agg = await prisma.review.aggregate({
+      where: { productId: product.id, isApproved: true },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { ratingAvg: agg._avg.rating ?? 0, ratingCount: agg._count._all },
+    });
+  }
+
   // ── Homepage sections ────────────────────────────────────────
   await prisma.homepageSection.createMany({
     data: [

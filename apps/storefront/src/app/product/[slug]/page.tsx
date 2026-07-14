@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { api } from '@/lib/api';
 import { ProductDetail } from '@/components/ProductDetail';
+import { ProductReviews } from '@/components/ProductReviews';
 import { ProductCard } from '@/components/ProductCard';
 import { effectivePrice } from '@/lib/format';
 
@@ -53,6 +54,13 @@ export default async function ProductPage({ params }: { params: { slug: string }
     <div className="container-x py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <ProductDetail product={product} />
+
+      <ProductReviews
+        productId={product.id}
+        initialReviews={product.reviews ?? []}
+        ratingAvg={product.ratingAvg}
+        ratingCount={product.ratingCount}
+      />
 
       {related.length > 0 && (
         <section className="mt-16">

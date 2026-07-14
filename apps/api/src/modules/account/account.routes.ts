@@ -104,20 +104,35 @@ accountRouter.post(
   asyncHandler(async (req, res) => {
     const userId = req.auth!.userId;
     const productId = req.params.productId;
-    // Only allow reviews for products the user has purchased & received.
-    const purchased = await prisma.orderItem.findFirst({
-      where: {
-        order: { userId, status: 'DELIVERED' },
-        variant: { productId },
-      },
-    });
-    if (!purchased) throw badRequest('You can only review products you have received');
 
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) throw notFound('Product not found');
+
+    // Any logged-in customer can review. A "verified buyer" flag is derived from
+    // whether they've received the product (shown as a badge on the storefront).
+    const purchased = await prisma.orderItem.findFirst({
+      where: { order: { userId, status: 'DELIVERED' }, variant: { productId } },
+    });
+
+    // One review per user per product (editable). Auto-approved so it shows at once.
     const review = await prisma.review.upsert({
       where: { productId_userId: { productId, userId } },
-      update: { ...req.body, isApproved: false },
-      create: { ...req.body, productId, userId },
+      update: { rating: req.body.rating, comment: req.body.comment, images: req.body.images, isApproved: true },
+      create: { productId, userId, rating: req.body.rating, comment: req.body.comment, images: req.body.images, isApproved: true },
+      include: { user: { select: { name: true } } },
     });
-    res.status(201).json({ review: serialize(review), note: 'Review submitted for moderation' });
+
+    // Recompute the product's rating aggregate from approved reviews.
+    const agg = await prisma.review.aggregate({
+      where: { productId, isApproved: true },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    await prisma.product.update({
+      where: { id: productId },
+      data: { ratingAvg: agg._avg.rating ?? 0, ratingCount: agg._count._all },
+    });
+
+    res.status(201).json({ review: serialize({ ...review, verified: Boolean(purchased) }) });
   }),
 );

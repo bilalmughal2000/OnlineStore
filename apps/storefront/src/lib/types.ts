@@ -83,6 +83,23 @@ export interface Cart {
   amountToFreeShipping: number;
 }
 
+export interface Review {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  verified?: boolean;
+  user?: { name: string } | null;
+}
+
+export interface Testimonial {
+  id: string;
+  rating: number;
+  comment: string | null;
+  user?: { name: string } | null;
+  product?: { title: string; slug: string; images: { url: string }[] } | null;
+}
+
 export interface AuthUser {
   id: string;
   name: string;

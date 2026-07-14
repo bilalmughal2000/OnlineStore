@@ -7,11 +7,11 @@ async function get<T>(path: string, revalidate = 60): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-import type { Banner, Category, HomepageSection, Product } from './types';
+import type { Banner, Category, HomepageSection, Product, Review, Testimonial } from './types';
 
 export const api = {
   homepage: () =>
-    get<{ banners: Banner[]; sections: HomepageSection[]; categories: Category[] }>(
+    get<{ banners: Banner[]; sections: HomepageSection[]; categories: Category[]; testimonials: Testimonial[] }>(
       '/content/homepage',
     ),
   menu: () => get<{ header: any[]; footer: any[] }>('/content/menu'),
@@ -24,7 +24,7 @@ export const api = {
       30,
     ),
   product: (slug: string) =>
-    get<{ product: Product & { reviews: any[]; attributes: any[] }; related: Product[] }>(
+    get<{ product: Product & { reviews: Review[]; attributes: any[] }; related: Product[] }>(
       `/products/${slug}`,
       30,
     ),

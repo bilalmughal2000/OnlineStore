@@ -3,12 +3,13 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { HeroCarousel } from '@/components/HeroCarousel';
 import { ProductCard } from '@/components/ProductCard';
+import { Testimonials } from '@/components/Testimonials';
 import type { Category, Product } from '@/lib/types';
 
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const { banners, sections, categories } = await api.homepage();
+  const { banners, sections, categories, testimonials } = await api.homepage();
 
   return (
     <div>
@@ -26,6 +27,8 @@ export default async function HomePage() {
           }
           return null;
         })}
+
+        <Testimonials items={testimonials} />
       </div>
     </div>
   );

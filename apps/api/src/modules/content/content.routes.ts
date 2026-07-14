@@ -37,6 +37,19 @@ contentRouter.get(
       }),
     ]);
 
+    // Social proof: recent 5-star reviews with a comment, for the homepage.
+    const testimonials = await prisma.review.findMany({
+      where: { isApproved: true, rating: 5, comment: { not: null } },
+      include: {
+        user: { select: { name: true } },
+        product: {
+          select: { title: true, slug: true, images: { where: { isPrimary: true }, take: 1, select: { url: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+    });
+
     // Populate PRODUCT_GRID sections with their products.
     const resolved = await Promise.all(
       sections.map(async (section) => {
@@ -67,6 +80,7 @@ contentRouter.get(
         banners: serialize(banners),
         sections: serialize(resolved),
         categories: serialize(categories),
+        testimonials: serialize(testimonials),
       };
     });
     res.json(data);
