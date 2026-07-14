@@ -9,8 +9,7 @@ import { Categories } from '@/pages/Categories';
 import { Orders } from '@/pages/Orders';
 import { OrderDetail } from '@/pages/OrderDetail';
 import { Coupons } from '@/pages/Coupons';
-import { Sections } from '@/pages/Sections';
-import { Banners } from '@/pages/Banners';
+import { Homepage } from '@/pages/Homepage';
 import { Customers } from '@/pages/Customers';
 import { Users } from '@/pages/Users';
 import { Reviews } from '@/pages/Reviews';
@@ -42,8 +41,7 @@ export function App() {
         <Route path="orders" element={<Orders />} />
         <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="coupons" element={<Coupons />} />
-        <Route path="banners" element={<Banners />} />
-        <Route path="sections" element={<Sections />} />
+        <Route path="sections" element={<Homepage />} />
         <Route path="customers" element={<Customers />} />
         <Route path="users" element={<Users />} />
         <Route path="reviews" element={<Reviews />} />

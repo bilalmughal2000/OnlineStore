@@ -3,7 +3,7 @@ import { Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Select } from '@/components/Select';
 
-const TYPES = ['PRODUCT_GRID', 'CATEGORY_TILES', 'BANNER', 'CAROUSEL'];
+const TYPES = ['PRODUCT_GRID', 'CATEGORY_TILES'];
 
 export function Sections() {
   const [sections, setSections] = useState<any[]>([]);
@@ -34,8 +34,7 @@ export function Sections() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="mb-2 font-serif text-2xl font-bold">Homepage Builder</h1>
-      <p className="mb-6 text-sm text-stone-500">Create, reorder, and toggle homepage sections — no code required.</p>
+      <p className="mb-6 text-sm text-stone-500">Create, reorder, and toggle homepage product & category sections — no code required.</p>
 
       <form onSubmit={create} className="card mb-6 grid grid-cols-3 items-end gap-4 p-5">
         <div><label className="label">Title</label><input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></div>

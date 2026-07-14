@@ -78,11 +78,10 @@ export function Banners() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-2 flex items-center justify-between">
-        <h1 className="font-serif text-2xl font-bold">Hero Banners</h1>
-        <button onClick={openCreate} className="btn-primary"><Plus size={16} /> Add Banner</button>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <p className="text-sm text-stone-500">Manage the homepage hero carousel — image, heading, subheading, and button.</p>
+        <button onClick={openCreate} className="btn-primary shrink-0"><Plus size={16} /> Add Banner</button>
       </div>
-      <p className="mb-6 text-sm text-stone-500">Manage the homepage hero carousel — image, heading, subheading, and button.</p>
 
       <div className="space-y-3">
         {banners.map((b, i) => (
