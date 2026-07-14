@@ -14,6 +14,7 @@ export function ProductCard({ product }: { product: Product }) {
   const [adding, setAdding] = useState(false);
 
   const primary = product.images.find((i) => i.isPrimary) ?? product.images[0];
+  const secondary = product.images.find((i) => i.id !== primary?.id); // swaps in on hover
   const pct = discountPct(product);
   const firstAvailable = product.variants.find((v) => v.stock > 0);
   const inStock = Boolean(firstAvailable);
@@ -42,7 +43,16 @@ export function ProductCard({ product }: { product: Product }) {
                 alt={primary.alt ?? product.title}
                 fill
                 sizes="(max-width:768px) 50vw, 25vw"
-                className="object-cover transition duration-500 group-hover:scale-105"
+                className={`object-cover transition duration-500 group-hover:scale-105 ${secondary ? 'group-hover:opacity-0' : ''}`}
+              />
+            )}
+            {secondary && (
+              <Image
+                src={secondary.url}
+                alt={primary?.alt ?? product.title}
+                fill
+                sizes="(max-width:768px) 50vw, 25vw"
+                className="object-cover opacity-0 transition duration-500 group-hover:scale-105 group-hover:opacity-100"
               />
             )}
           </div>
