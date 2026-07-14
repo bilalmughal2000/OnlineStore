@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireRole } from '../../middleware/auth';
 import { bumpCacheVersion } from '../../lib/cache';
+import { pingStorefrontRevalidate } from '../../lib/revalidate';
 import { adminDashboardRouter } from './dashboard.routes';
 import { adminCatalogRouter } from './catalog.routes';
 import { adminOrdersRouter } from './orders.routes';
@@ -17,7 +18,10 @@ adminRouter.use(requireRole('ADMIN', 'STAFF'));
 adminRouter.use((req, res, next) => {
   if (req.method !== 'GET') {
     res.on('finish', () => {
-      if (res.statusCode < 400) bumpCacheVersion();
+      if (res.statusCode < 400) {
+        bumpCacheVersion();
+        pingStorefrontRevalidate();
+      }
     });
   }
   next();

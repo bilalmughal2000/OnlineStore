@@ -1,8 +1,10 @@
 // Server-side data fetching (used in Server Components). Public endpoints only.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
+// Tagged 'storefront' so an admin change can purge all cached storefront data
+// on demand (see app/api/revalidate). revalidate is the fallback TTL.
 async function get<T>(path: string, revalidate = 60): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, { next: { revalidate } });
+  const res = await fetch(`${API_URL}${path}`, { next: { revalidate, tags: ['storefront'] } });
   if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
   return res.json() as Promise<T>;
 }
