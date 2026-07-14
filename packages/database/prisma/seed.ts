@@ -303,6 +303,8 @@ async function main() {
     data: [
       {
         title: 'Summer Lawn Collection',
+        subtitle: 'Breathable fabrics for the season',
+        ctaLabel: 'Shop Women',
         imageUrl: img('banner-summer', 1600, 600),
         link: '/category/women',
         position: 'hero',
@@ -310,6 +312,8 @@ async function main() {
       },
       {
         title: 'Eid Sale — Up to 50% Off',
+        subtitle: 'Limited time on selected styles',
+        ctaLabel: 'Shop the Sale',
         imageUrl: img('banner-eid', 1600, 600),
         link: '/category/sale',
         position: 'hero',
@@ -361,7 +365,7 @@ async function main() {
   // ── Settings ─────────────────────────────────────────────────
   await prisma.setting.createMany({
     data: [
-      { key: 'store', value: { name: 'Aabroo', currency: 'PKR', tagline: 'Modern Pakistani Fashion', theme: 'terracotta' } },
+      { key: 'store', value: { name: 'Aabroo', currency: 'PKR', tagline: 'Modern Pakistani Fashion', theme: 'terracotta', promoText: 'Free delivery on orders above Rs. 3,000 · Cash on Delivery available 🇵🇰' } },
       { key: 'shipping', value: { flatRate: 200, freeShippingThreshold: 3000 } },
       { key: 'payments', value: { cod: true, stripe: false, jazzcash: false, easypaisa: false, codMaxValue: 20000 } },
       { key: 'tax', value: { enabled: false, rate: 0 } },

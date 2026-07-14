@@ -122,7 +122,9 @@ adminMarketingRouter.post(
 
 // ─────────────── Banners ───────────────
 const bannerSchema = z.object({
-  title: z.string().optional(),
+  title: z.string().optional().nullable(),
+  subtitle: z.string().optional().nullable(),
+  ctaLabel: z.string().optional().nullable(),
   imageUrl: z.string().url(),
   mobileImageUrl: z.string().url().optional().nullable(),
   link: z.string().optional().nullable(),
@@ -158,6 +160,19 @@ adminMarketingRouter.delete(
   '/banners/:id',
   asyncHandler(async (req, res) => {
     await prisma.banner.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  }),
+);
+
+adminMarketingRouter.post(
+  '/banners/reorder',
+  validate(z.object({ order: z.array(z.string()) })),
+  asyncHandler(async (req, res) => {
+    await prisma.$transaction(
+      req.body.order.map((id: string, i: number) =>
+        prisma.banner.update({ where: { id }, data: { sortOrder: i } }),
+      ),
+    );
     res.json({ ok: true });
   }),
 );

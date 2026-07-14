@@ -403,7 +403,9 @@ model HomepageSection {
 
 model Banner {
   id        String   @id @default(cuid())
-  title     String?
+  title     String?  // hero heading
+  subtitle  String?  // hero subheading
+  ctaLabel  String?  // call-to-action button text
   imageUrl  String
   mobileImageUrl String?
   link      String?

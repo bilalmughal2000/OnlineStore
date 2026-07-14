@@ -45,6 +45,8 @@ export interface Category {
 export interface Banner {
   id: string;
   title?: string | null;
+  subtitle?: string | null;
+  ctaLabel?: string | null;
   imageUrl: string;
   link?: string | null;
 }

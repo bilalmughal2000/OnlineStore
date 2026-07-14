@@ -23,10 +23,11 @@ export function HeroCarousel({ banners }: { banners: Banner[] }) {
         <div className="absolute inset-0 flex items-center bg-gradient-to-r from-black/50 to-transparent">
           <div className="container-x">
             <div className="max-w-md text-white">
-              <h1 className="font-serif text-3xl font-bold md:text-5xl">{b.title}</h1>
+              {b.title && <h1 className="font-serif text-3xl font-bold md:text-5xl">{b.title}</h1>}
+              {b.subtitle && <p className="mt-2 text-base text-white/90 md:text-lg">{b.subtitle}</p>}
               {b.link && (
                 <Link href={b.link} className="btn-primary mt-5">
-                  Shop Now
+                  {b.ctaLabel || 'Shop Now'}
                 </Link>
               )}
             </div>

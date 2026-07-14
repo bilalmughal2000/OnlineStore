@@ -31,6 +31,9 @@ export function Settings() {
         <Field label="Tagline">
           <input className="input" value={settings.store?.tagline ?? ''} onChange={(e) => upd('store', 'tagline', e.target.value)} />
         </Field>
+        <Field label="Promo bar text (top of storefront — leave blank to hide)">
+          <input className="input" value={settings.store?.promoText ?? ''} onChange={(e) => upd('store', 'promoText', e.target.value)} placeholder="Free delivery on orders above Rs. 3,000" />
+        </Field>
         <Field label="Storefront theme">
           <ThemePicker
             theme={settings.store?.theme ?? DEFAULT_THEME}

@@ -28,11 +28,12 @@ async function getShell() {
       header,
       footer,
       storeName: (settings?.store?.name as string) ?? 'Aabroo',
+      promoText: (settings?.store?.promoText as string) ?? '',
       themeKey: (settings?.store?.theme as string) ?? DEFAULT_THEME,
       customTheme: settings?.store?.customTheme as ThemePalette | undefined,
     };
   } catch {
-    return { header: [], footer: [], storeName: 'Aabroo', themeKey: DEFAULT_THEME, customTheme: undefined };
+    return { header: [], footer: [], storeName: 'Aabroo', promoText: '', themeKey: DEFAULT_THEME, customTheme: undefined };
   }
 }
 
@@ -50,7 +51,7 @@ function themeVars(key: string, custom?: ThemePalette): React.CSSProperties {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { header, footer, storeName, themeKey, customTheme } = await getShell();
+  const { header, footer, storeName, promoText, themeKey, customTheme } = await getShell();
   return (
     <html lang="en" style={themeVars(themeKey, customTheme)}>
       <head>
@@ -60,7 +61,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="flex h-dvh flex-col overflow-hidden">
         <StoreProvider>
-          <Header menu={header} storeName={storeName} />
+          <Header menu={header} storeName={storeName} promoText={promoText} />
           {/* Only this middle region scrolls; header + footer stay fixed. */}
           <main className="app-scroll flex-1">
             <PageBack />
