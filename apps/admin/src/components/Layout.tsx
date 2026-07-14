@@ -30,7 +30,7 @@ export function Layout() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <aside className="fixed inset-y-0 left-0 flex w-60 flex-col border-r border-stone-200 bg-white">
         <div className="border-b border-stone-200 px-5 py-4">
           <p className="font-serif text-lg font-bold">Aabroo Admin</p>
@@ -67,7 +67,7 @@ export function Layout() {
           </button>
         </div>
       </aside>
-      <main className="ml-60 flex-1 p-6">
+      <main className="app-scroll ml-60 flex-1 p-6">
         <Outlet />
       </main>
     </div>

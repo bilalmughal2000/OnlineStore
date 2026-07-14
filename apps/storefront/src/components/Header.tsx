@@ -24,7 +24,7 @@ export function Header({ menu, storeName }: { menu: MenuLink[]; storeName: strin
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-black/5 bg-cream/95 backdrop-blur">
+    <header className="z-40 shrink-0 border-b border-black/5 bg-cream/95 backdrop-blur">
       <div className="bg-ink py-2 text-center text-xs text-white">
         Free delivery on orders above Rs. 3,000 · Cash on Delivery available 🇵🇰
       </div>

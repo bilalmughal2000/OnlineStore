@@ -41,10 +41,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="preconnect" href="https://picsum.photos" crossOrigin="" />
         <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="" />
       </head>
-      <body>
+      <body className="flex h-dvh flex-col overflow-hidden">
         <StoreProvider>
           <Header menu={header} storeName={storeName} />
-          <main className="min-h-[60vh]">{children}</main>
+          {/* Only this middle region scrolls; header + footer stay fixed. */}
+          <main className="app-scroll flex-1">{children}</main>
           <Footer links={footer} storeName={storeName} />
         </StoreProvider>
       </body>

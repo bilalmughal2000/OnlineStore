@@ -63,6 +63,34 @@ select.input option {
   background: #fff;
 }
 
+/* App-shell scroll region: only the middle scrolls; header/footer stay fixed.
+   Themed, slim scrollbar that matches the accent colour. */
+.app-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 83, 9, 0.55) transparent; /* accent thumb, clear track */
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+.app-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.app-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-scroll::-webkit-scrollbar-thumb {
+  background: rgba(180, 83, 9, 0.5); /* accent @ 50% */
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.app-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(146, 64, 14, 0.85); /* accent-dark */
+  background-clip: content-box;
+}
+
 /* Skeleton shimmer */
 .skeleton {
   @apply animate-pulse rounded bg-black/10;

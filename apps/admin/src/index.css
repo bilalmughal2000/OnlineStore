@@ -22,6 +22,31 @@ body {
   .td { @apply px-4 py-3 text-sm; }
 }
 
+/* App-shell scroll region: only the main content scrolls; sidebar stays fixed. */
+.app-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 83, 9, 0.55) transparent;
+}
+.app-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.app-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-scroll::-webkit-scrollbar-thumb {
+  background: rgba(180, 83, 9, 0.5);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.app-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(146, 64, 14, 0.85);
+  background-clip: content-box;
+}
+
 /* Themed dropdown chevron for every <select> (both .select and .input selects). */
 .select,
 select.input {

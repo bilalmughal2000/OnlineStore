@@ -9,8 +9,8 @@ interface MenuLink {
 
 export function Footer({ links, storeName }: { links: MenuLink[]; storeName: string }) {
   return (
-    <footer className="mt-16 border-t border-black/5 bg-white">
-      <div className="container-x grid grid-cols-2 gap-6 py-10 md:grid-cols-4">
+    <footer className="shrink-0 border-t border-black/5 bg-white">
+      <div className="container-x grid grid-cols-2 gap-x-6 gap-y-3 py-4 md:grid-cols-4">
         {[
           { icon: ShieldCheck, t: 'Secure Payments', d: 'Stripe / JazzCash / EasyPaisa' },
           { icon: Banknote, t: 'Cash on Delivery', d: 'Pay when you receive' },
@@ -27,7 +27,7 @@ export function Footer({ links, storeName }: { links: MenuLink[]; storeName: str
         ))}
       </div>
       <div className="border-t border-black/5">
-        <div className="container-x flex flex-col items-center justify-between gap-4 py-6 md:flex-row">
+        <div className="container-x flex flex-col items-center justify-between gap-3 py-4 md:flex-row">
           <div>
             <p className="font-serif text-lg font-bold">{storeName}</p>
             <p className="text-xs text-ink/50">© {new Date().getFullYear()} {storeName}. All rights reserved.</p>
