@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatPKR } from '@/lib/format';
 import { Select } from '@/components/Select';
 import { PasswordInput } from '@/components/PasswordInput';
 
@@ -19,6 +19,7 @@ interface UserRow {
   role: 'CUSTOMER' | 'STAFF' | 'ADMIN';
   isBlocked: boolean;
   createdAt: string;
+  lifetimeValue?: number;
   _count?: { orders: number };
 }
 
@@ -28,6 +29,7 @@ export function Users() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [buyersOnly, setBuyersOnly] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; id?: string }>({ open: false });
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
@@ -37,13 +39,14 @@ export function Users() {
     const q = new URLSearchParams({ pageSize: '100' });
     if (search) q.set('search', search);
     if (roleFilter) q.set('role', roleFilter);
+    if (buyersOnly) q.set('hasOrders', 'true');
     api.get<{ items: UserRow[] }>(`/admin/users?${q}`).then((d) => setUsers(d.items));
   };
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, roleFilter]);
+  }, [search, roleFilter, buyersOnly]);
 
   const openCreate = () => {
     setForm(emptyForm);
@@ -100,7 +103,7 @@ export function Users() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-serif text-2xl font-bold">Users</h1>
+        <h1 className="font-serif text-2xl font-bold">Customers &amp; Users</h1>
         <button onClick={openCreate} className="btn-primary">
           <Plus size={16} /> Add User
         </button>
@@ -119,6 +122,10 @@ export function Users() {
             { value: 'ADMIN', label: 'Admins' },
           ]}
         />
+        <label className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm">
+          <input type="checkbox" checked={buyersOnly} onChange={(e) => setBuyersOnly(e.target.checked)} />
+          Bought something
+        </label>
       </div>
 
       <div className="card overflow-hidden">
@@ -130,6 +137,7 @@ export function Users() {
               <th className="th">Role</th>
               <th className="th">Status</th>
               <th className="th">Orders</th>
+              <th className="th text-right">Lifetime Value</th>
               <th className="th">Joined</th>
               <th className="th text-right">Actions</th>
             </tr>
@@ -144,6 +152,7 @@ export function Users() {
                   {u.isBlocked ? <span className="badge bg-red-100 text-red-700">Blocked</span> : <span className="badge bg-green-100 text-green-700">Active</span>}
                 </td>
                 <td className="td">{u._count?.orders ?? 0}</td>
+                <td className="td text-right font-medium">{formatPKR(u.lifetimeValue ?? 0)}</td>
                 <td className="td text-xs text-stone-500">{formatDate(u.createdAt)}</td>
                 <td className="td">
                   <div className="flex justify-end gap-2">
@@ -153,7 +162,7 @@ export function Users() {
                 </td>
               </tr>
             ))}
-            {users.length === 0 && <tr><td className="td text-stone-500" colSpan={7}>No users found.</td></tr>}
+            {users.length === 0 && <tr><td className="td text-stone-500" colSpan={8}>No users found.</td></tr>}
           </tbody>
         </table>
       </div>

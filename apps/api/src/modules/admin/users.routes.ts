@@ -6,6 +6,7 @@ import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { requireRole } from '../../middleware/auth';
 import { serialize } from '../../lib/serialize';
+import { toNum } from '../../lib/money';
 import { badRequest, forbidden, notFound } from '../../lib/errors';
 import { logActivity } from './helpers';
 
@@ -53,20 +54,26 @@ adminUsersRouter.get(
     const pageSize = Number(req.query.pageSize ?? 20);
     const where: Prisma.UserWhereInput = {};
     if (req.query.role) where.role = String(req.query.role) as Role;
+    if (req.query.hasOrders === 'true') where.orders = { some: {} }; // bought something
     if (req.query.search) {
       const s = String(req.query.search);
       where.OR = [{ name: { contains: s } }, { email: { contains: s } }];
     }
-    const [total, items] = await Promise.all([
+    const [total, rows] = await Promise.all([
       prisma.user.count({ where }),
       prisma.user.findMany({
         where,
-        select: publicSelect,
+        select: { ...publicSelect, orders: { select: { total: true } } },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
     ]);
+    // Attach lifetime value; drop the raw orders array from the response.
+    const items = rows.map(({ orders, ...u }) => ({
+      ...u,
+      lifetimeValue: orders.reduce((s, o) => s + toNum(o.total), 0),
+    }));
     res.json({ items: serialize(items), total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   }),
 );

@@ -10,7 +10,6 @@ import { Orders } from '@/pages/Orders';
 import { OrderDetail } from '@/pages/OrderDetail';
 import { Coupons } from '@/pages/Coupons';
 import { Homepage } from '@/pages/Homepage';
-import { Customers } from '@/pages/Customers';
 import { Users } from '@/pages/Users';
 import { Reviews } from '@/pages/Reviews';
 import { Pages } from '@/pages/Pages';
@@ -42,8 +41,8 @@ export function App() {
         <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="coupons" element={<Coupons />} />
         <Route path="sections" element={<Homepage />} />
-        <Route path="customers" element={<Customers />} />
         <Route path="users" element={<Users />} />
+        <Route path="customers" element={<Users />} />
         <Route path="reviews" element={<Reviews />} />
         <Route path="pages" element={<Pages />} />
         <Route path="settings" element={<Settings />} />
