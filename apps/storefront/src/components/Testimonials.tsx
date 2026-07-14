@@ -68,13 +68,13 @@ export function Testimonials({ items }: { items: Testimonial[] }) {
 
   return (
     <section
-      className="overflow-hidden rounded-2xl bg-ink px-5 py-10 text-white md:px-10"
+      className="overflow-hidden"
       onMouseEnter={() => (paused.current = true)}
       onMouseLeave={() => (paused.current = false)}
     >
       <div className="mb-8 text-center">
         <h2 className="font-serif text-2xl font-bold md:text-3xl">Loved by our customers</h2>
-        <p className="mt-1 text-white/60">Real 5-star reviews from shoppers across Pakistan</p>
+        <p className="mt-1 text-ink/50">Real 5-star reviews from shoppers across Pakistan</p>
       </div>
 
       <div className="overflow-hidden">
@@ -84,23 +84,23 @@ export function Testimonials({ items }: { items: Testimonial[] }) {
           onTransitionEnd={handleEnd}
         >
           {slides.map((t, i) => (
-            <div key={i} className="shrink-0 px-2.5" style={{ width: `${stepPct}%` }}>
-              <figure className="flex h-full flex-col rounded-xl bg-white/5 p-5 ring-1 ring-white/10 transition duration-300 hover:-translate-y-1 hover:bg-white/10">
-                <Quote className="text-accent-light" size={22} />
-                <blockquote className="mt-2 flex-1 text-sm leading-relaxed text-white/90">{t.comment}</blockquote>
-                <div className="mt-3 flex text-amber-400">
+            <div key={i} className="shrink-0 px-2.5 py-2" style={{ width: `${stepPct}%` }}>
+              <figure className="flex h-full flex-col rounded-xl border border-black/5 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+                <Quote className="text-accent" size={22} />
+                <blockquote className="mt-2 flex-1 text-sm leading-relaxed text-ink/80">{t.comment}</blockquote>
+                <div className="mt-3 flex text-amber-500">
                   {Array.from({ length: 5 }).map((_, s) => (
                     <Star key={s} size={14} fill="currentColor" />
                   ))}
                 </div>
-                <figcaption className="mt-4 flex items-center gap-3 border-t border-white/10 pt-4">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-accent text-xs font-semibold">
+                <figcaption className="mt-4 flex items-center gap-3 border-t border-black/5 pt-4">
+                  <span className="grid h-9 w-9 place-items-center rounded-full bg-accent text-xs font-semibold text-white">
                     {initials(t.user?.name ?? 'A')}
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{t.user?.name ?? 'Verified Buyer'}</p>
                     {t.product && (
-                      <Link href={`/product/${t.product.slug}`} className="line-clamp-1 text-xs text-white/50 hover:text-white">
+                      <Link href={`/product/${t.product.slug}`} className="line-clamp-1 text-xs text-ink/50 hover:text-accent">
                         on {t.product.title}
                       </Link>
                     )}
@@ -122,7 +122,7 @@ export function Testimonials({ items }: { items: Testimonial[] }) {
                 setTransition(true);
                 setIndex(i);
               }}
-              className={`h-1.5 rounded-full transition-all ${index % count === i ? 'w-6 bg-accent-light' : 'w-1.5 bg-white/30'}`}
+              className={`h-1.5 rounded-full transition-all ${index % count === i ? 'w-6 bg-accent' : 'w-1.5 bg-black/20'}`}
             />
           ))}
         </div>
