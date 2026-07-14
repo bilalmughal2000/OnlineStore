@@ -157,6 +157,8 @@ model Product {
   taxClass       String?
   seoTitle       String?
   seoDescription String?
+  fabricCare     String?       @db.Text // rich-text (HTML) for the "Fabric & Care" tab
+  shippingReturns String?      @db.Text // rich-text (HTML) for the "Shipping & Returns" tab
   sizeChartImage String?       // optional uploaded size-chart image URL
   sizeChartTable Json?         // optional structured table: { headers: string[], rows: string[][] }
   ratingAvg      Float         @default(0)

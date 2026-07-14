@@ -25,6 +25,8 @@ const blank = {
   isFeatured: false,
   seoTitle: '',
   seoDescription: '',
+  fabricCare: '',
+  shippingReturns: '',
 };
 
 export function ProductEditor() {
@@ -81,6 +83,8 @@ export function ProductEditor() {
           isFeatured: product.isFeatured,
           seoTitle: product.seoTitle ?? '',
           seoDescription: product.seoDescription ?? '',
+          fabricCare: product.fabricCare ?? '',
+          shippingReturns: product.shippingReturns ?? '',
         });
         setImages(product.images.map((i: any) => i.url));
         setSizeChartImage(product.sizeChartImage ?? '');
@@ -110,6 +114,8 @@ export function ProductEditor() {
       basePrice: Number(form.basePrice),
       salePrice: form.salePrice === '' ? null : Number(form.salePrice),
       categoryId: form.categoryId || null,
+      fabricCare: form.fabricCare || null,
+      shippingReturns: form.shippingReturns || null,
       sizeChartImage: sizeChartImage || null,
       // Only send a table if it has at least one header and one data row.
       sizeChartTable:
@@ -160,6 +166,20 @@ export function ProductEditor() {
               <div><label className="label">Sale Price (optional)</label><input type="number" className="input" value={form.salePrice} onChange={set('salePrice')} /></div>
               <div><label className="label">Brand</label><input className="input" value={form.brand} onChange={set('brand')} /></div>
               <div><label className="label">Fabric</label><input className="input" value={form.fabric} onChange={set('fabric')} /></div>
+            </div>
+          </div>
+
+          {/* PDP tab content */}
+          <div className="card space-y-4 p-5">
+            <div>
+              <label className="label">Fabric &amp; Care</label>
+              <RichTextEditor value={form.fabricCare} onChange={(html) => setForm((f) => ({ ...f, fabricCare: html }))} />
+              <p className="mt-1 text-xs text-stone-400">Shown in the “Fabric &amp; Care” tab. Leave blank for the default.</p>
+            </div>
+            <div>
+              <label className="label">Shipping &amp; Returns</label>
+              <RichTextEditor value={form.shippingReturns} onChange={(html) => setForm((f) => ({ ...f, shippingReturns: html }))} />
+              <p className="mt-1 text-xs text-stone-400">Shown in the “Shipping &amp; Returns” tab. Leave blank for the default.</p>
             </div>
           </div>
 

@@ -117,6 +117,8 @@ export const productInputSchema = z.object({
   categoryId: z.string().optional().nullable(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
+  fabricCare: z.string().optional().nullable(),
+  shippingReturns: z.string().optional().nullable(),
   sizeChartImage: z.string().url().optional().nullable(),
   sizeChartTable: sizeChartTableSchema.optional().nullable(),
   images: z.array(z.object({ url: z.string().url(), alt: z.string().optional(), isPrimary: z.boolean().optional() })).default([]),

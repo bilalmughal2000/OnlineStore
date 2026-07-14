@@ -182,6 +182,10 @@ async function main() {
         categoryId: categoryMap.get(p.cat),
         seoTitle: p.title,
         seoDescription: `Buy ${p.title} online in Pakistan. Cash on Delivery available.`,
+        fabricCare:
+          '<p><strong>Fabric:</strong> Premium lawn.</p><ul><li>Machine wash cold, similar colours</li><li>Do not bleach</li><li>Warm iron on reverse</li></ul>',
+        shippingReturns:
+          '<p>Delivered nationwide in <strong>3–5 working days</strong>.</p><p>Easy <strong>7-day returns</strong> on unused items with tags intact.</p>',
         // Every product ships with a default size chart table (measurements in inches).
         sizeChartTable: {
           headers: ['Size', 'Chest', 'Waist', 'Length'],

@@ -79,6 +79,8 @@ adminCatalogRouter.post(
         categoryId: body.categoryId ?? null,
         seoTitle: body.seoTitle,
         seoDescription: body.seoDescription,
+        fabricCare: body.fabricCare ?? null,
+        shippingReturns: body.shippingReturns ?? null,
         sizeChartImage: body.sizeChartImage ?? null,
         sizeChartTable: body.sizeChartTable ?? undefined,
         images: {
@@ -169,6 +171,8 @@ adminCatalogRouter.put(
           categoryId: body.categoryId ?? null,
           seoTitle: body.seoTitle,
           seoDescription: body.seoDescription,
+          fabricCare: body.fabricCare ?? null,
+          shippingReturns: body.shippingReturns ?? null,
           sizeChartImage: body.sizeChartImage ?? null,
           sizeChartTable: body.sizeChartTable ?? Prisma.DbNull,
           images: {

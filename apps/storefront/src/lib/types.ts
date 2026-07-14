@@ -24,6 +24,8 @@ export interface Product {
   salePrice?: number | null;
   brand?: string | null;
   fabric?: string | null;
+  fabricCare?: string | null;
+  shippingReturns?: string | null;
   ratingAvg: number;
   ratingCount: number;
   isFeatured: boolean;

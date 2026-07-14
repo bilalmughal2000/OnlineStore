@@ -14,8 +14,10 @@ type FullProduct = Product & { reviews?: any[] };
 const TABS = ['Description', 'Size & Fit', 'Fabric & Care', 'Shipping & Returns'] as const;
 
 export function ProductDetail({ product }: { product: FullProduct }) {
-  const { addToCart, showToast, toggleWishlist, isWishlisted } = useStore();
+  const { addToCart, showToast, toggleWishlist, isWishlisted, cart } = useStore();
   const wl = isWishlisted(product.id);
+  // Live free-shipping threshold — the cart is priced server-side, never cached.
+  const freeShippingThreshold = cart?.freeShippingThreshold;
 
   const sizes = useMemo(
     () => [...new Set(product.variants.map((v) => v.size).filter(Boolean))] as string[],
@@ -199,7 +201,10 @@ export function ProductDetail({ product }: { product: FullProduct }) {
         </div>
 
         <div className="mt-4 flex items-center gap-2 rounded-md bg-black/5 p-3 text-sm text-ink/70">
-          <Truck size={18} className="text-accent" /> Free delivery on orders above Rs. 3,000 · COD available
+          <Truck size={18} className="text-accent" />
+          {freeShippingThreshold
+            ? `Free delivery on orders above ${formatPKR(freeShippingThreshold)} · COD available`
+            : 'Free delivery on qualifying orders · COD available'}
         </div>
 
         {/* Tabs */}
@@ -235,8 +240,18 @@ export function ProductDetail({ product }: { product: FullProduct }) {
                 )}
               </div>
             )}
-            {tab === 'Fabric & Care' && <p>Fabric: {product.fabric ?? 'Premium fabric'}. Machine wash cold, do not bleach, warm iron.</p>}
-            {tab === 'Shipping & Returns' && <p>Delivered nationwide in 3-5 working days. Easy 7-day returns on unused items with tags.</p>}
+            {tab === 'Fabric & Care' &&
+              (product.fabricCare ? (
+                <div dangerouslySetInnerHTML={{ __html: product.fabricCare }} />
+              ) : (
+                <p>Fabric: {product.fabric ?? 'Premium fabric'}. Machine wash cold, do not bleach, warm iron.</p>
+              ))}
+            {tab === 'Shipping & Returns' &&
+              (product.shippingReturns ? (
+                <div dangerouslySetInnerHTML={{ __html: product.shippingReturns }} />
+              ) : (
+                <p>Delivered nationwide in 3-5 working days. Easy 7-day returns on unused items with tags.</p>
+              ))}
           </div>
         </div>
       </div>
