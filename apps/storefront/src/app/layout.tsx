@@ -5,7 +5,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PageBack } from '@/components/PageBack';
 import { api } from '@/lib/api';
-import { THEMES, DEFAULT_THEME } from '@store/shared-types';
+import { THEMES, DEFAULT_THEME, type ThemePalette } from '@store/shared-types';
 
 export const metadata: Metadata = {
   title: { default: 'Aabroo — Modern Pakistani Fashion', template: '%s · Aabroo' },
@@ -29,14 +29,16 @@ async function getShell() {
       footer,
       storeName: (settings?.store?.name as string) ?? 'Aabroo',
       themeKey: (settings?.store?.theme as string) ?? DEFAULT_THEME,
+      customTheme: settings?.store?.customTheme as ThemePalette | undefined,
     };
   } catch {
-    return { header: [], footer: [], storeName: 'Aabroo', themeKey: DEFAULT_THEME };
+    return { header: [], footer: [], storeName: 'Aabroo', themeKey: DEFAULT_THEME, customTheme: undefined };
   }
 }
 
-function themeVars(key: string): React.CSSProperties {
-  const c = (THEMES[key] ?? THEMES[DEFAULT_THEME]).colors;
+function themeVars(key: string, custom?: ThemePalette): React.CSSProperties {
+  // Use the admin's custom palette when selected, else a preset.
+  const c = key === 'custom' && custom?.accent ? custom : (THEMES[key] ?? THEMES[DEFAULT_THEME]).colors;
   return {
     '--ink': c.ink,
     '--cream': c.cream,
@@ -48,9 +50,9 @@ function themeVars(key: string): React.CSSProperties {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { header, footer, storeName, themeKey } = await getShell();
+  const { header, footer, storeName, themeKey, customTheme } = await getShell();
   return (
-    <html lang="en" style={themeVars(themeKey)}>
+    <html lang="en" style={themeVars(themeKey, customTheme)}>
       <head>
         {/* Warm up the connection to the image CDN (LCP hero image lives here). */}
         <link rel="preconnect" href="https://picsum.photos" crossOrigin="" />

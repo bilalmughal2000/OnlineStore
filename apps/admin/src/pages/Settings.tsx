@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
-import { THEMES, DEFAULT_THEME } from '@store/shared-types';
+import { DEFAULT_THEME } from '@store/shared-types';
 import { api } from '@/lib/api';
+import { ThemePicker } from '@/components/ThemePicker';
 
 export function Settings() {
   const [settings, setSettings] = useState<Record<string, any>>({});
@@ -32,28 +32,11 @@ export function Settings() {
           <input className="input" value={settings.store?.tagline ?? ''} onChange={(e) => upd('store', 'tagline', e.target.value)} />
         </Field>
         <Field label="Storefront theme">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {Object.entries(THEMES).map(([key, t]) => {
-              const active = (settings.store?.theme ?? DEFAULT_THEME) === key;
-              return (
-                <button
-                  type="button"
-                  key={key}
-                  onClick={() => upd('store', 'theme', key)}
-                  className={`relative rounded-lg border p-3 text-left transition ${active ? 'border-brand ring-2 ring-brand/30' : 'border-stone-200 hover:border-stone-300'}`}
-                >
-                  {active && <Check size={14} className="absolute right-2 top-2 text-brand" />}
-                  <div className="mb-2 flex gap-1">
-                    {[t.colors.accent, t.colors.accentDark, t.colors.accentLight, t.colors.ink].map((c, i) => (
-                      <span key={i} className="h-6 w-6 rounded-full ring-1 ring-black/10" style={{ background: `rgb(${c})` }} />
-                    ))}
-                  </div>
-                  <p className="text-sm font-medium">{t.name}</p>
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-xs text-stone-400">Applies to the customer storefront. Save to publish.</p>
+          <ThemePicker
+            theme={settings.store?.theme ?? DEFAULT_THEME}
+            customTheme={settings.store?.customTheme}
+            onChange={(patch) => setSettings((s) => ({ ...s, store: { ...s.store, ...patch } }))}
+          />
         </Field>
       </Section>
 
