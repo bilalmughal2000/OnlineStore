@@ -91,16 +91,17 @@ cPanel can host this app, **but with hard constraints**. Read this first.
 | **Process mgr** | **Passenger** manages the Node process (no PM2). It sets `PORT` (the API already honours it). |
 | **Email** | Use your **cPanel mailbox SMTP** — set `SMTP_HOST`/`SMTP_USER`/… in the app's env vars. |
 
-### Prisma engine target (important)
-Passenger hosts are usually CloudLinux (RHEL-based). Add the matching engine to
-`packages/database/prisma/schema.prisma` so the client runs there, then regenerate:
-```prisma
-generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]   // use rhel-openssl-1.1.x on older hosts
-}
-```
-`npm run db:generate` again after changing this.
+### Prisma engine target (already configured ✓)
+`schema.prisma` already includes CloudLinux engines
+(`binaryTargets = ["native", "rhel-openssl-3.0.x", "rhel-openssl-1.1.x"]`), so the
+Prisma client runs on cPanel out of the box. Just run `npm run build:packages`
+(or `npm run db:generate`) on the server so the right engine is present.
+
+### Environment variables
+Copy **`deploy/cpanel.env.example`** — it lists every var to set under each Node
+app's *Environment variables* (DB, JWT, CORS, Cloudinary, SMTP, revalidation,
+`NEXT_PUBLIC_API_URL`/`VITE_API_URL`). Redis is optional — leave `REDIS_URL`
+blank on shared cPanel and caching is skipped cleanly.
 
 ### Steps
 

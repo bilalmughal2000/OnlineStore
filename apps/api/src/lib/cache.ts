@@ -1,4 +1,4 @@
-import { getRedis } from './redis';
+import { getRedis, REDIS_ENABLED } from './redis';
 
 // Cache keys are namespaced by a global version counter. Any admin write bumps
 // the version (see admin router), which instantly invalidates all cached reads
@@ -18,6 +18,7 @@ async function versionedKey(redis: ReturnType<typeof getRedis>, key: string): Pr
 }
 
 export async function cached<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
+  if (!REDIS_ENABLED) return fn(); // caching disabled (no Redis configured)
   const redis = getRedis();
   const cacheKey = await versionedKey(redis, key);
 
@@ -40,6 +41,7 @@ export async function cached<T>(key: string, ttlSeconds: number, fn: () => Promi
 
 // Invalidate all cached reads by bumping the namespace version.
 export function bumpCacheVersion(): void {
+  if (!REDIS_ENABLED) return;
   getRedis()
     .incr(VERSION_KEY)
     .catch(() => {});

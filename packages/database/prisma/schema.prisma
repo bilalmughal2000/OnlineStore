@@ -3,6 +3,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // "native" for local/dev; the rhel-* engines let the client run on
+  // CloudLinux/cPanel hosts (pick matches OpenSSL 3.x or 1.1.x automatically).
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "rhel-openssl-1.1.x"]
 }
 
 datasource db {

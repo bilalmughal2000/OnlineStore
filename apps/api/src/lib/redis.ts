@@ -1,8 +1,11 @@
 import Redis from 'ioredis';
 import { env } from '../env';
 
-// Lazy Redis client. Used for rate-limiting counters and guest-cart hints.
-// The app degrades gracefully if Redis is unavailable.
+// Redis is optional. Enabled only when REDIS_URL is configured — on hosts
+// without Redis (e.g. shared cPanel) leave it unset and caching is skipped
+// cleanly (no connection retries / error spam).
+export const REDIS_ENABLED = Boolean(env.redisUrl);
+
 let client: Redis | null = null;
 
 export function getRedis(): Redis {

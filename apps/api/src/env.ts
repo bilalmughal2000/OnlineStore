@@ -10,8 +10,9 @@ export const env = {
   isProd: process.env.NODE_ENV === 'production',
   // PORT is set by Passenger (cPanel "Setup Node.js App"); API_PORT is used by PM2/VPS.
   port: Number(process.env.PORT ?? process.env.API_PORT ?? 4000),
-  databaseUrl: required('DATABASE_URL', 'postgresql://store:store@localhost:5432/clothing_store'),
-  redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  databaseUrl: required('DATABASE_URL', 'mysql://root:root@localhost:3306/clothing_store'),
+  // Empty when unset → Redis disabled (see REDIS_ENABLED). Optional on cPanel.
+  redisUrl: process.env.REDIS_URL ?? '',
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://localhost:5173')
     .split(',')
     .map((s) => s.trim()),
