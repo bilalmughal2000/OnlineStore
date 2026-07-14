@@ -5,12 +5,16 @@ import { ProductDetail } from '@/components/ProductDetail';
 import { ProductCard } from '@/components/ProductCard';
 import { effectivePrice } from '@/lib/format';
 
+// Descriptions are HTML (rich text) — strip tags for meta/structured data.
+const plainText = (html: string) =>
+  html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   try {
     const { product } = await api.product(params.slug);
     return {
       title: product.title,
-      description: product.description.slice(0, 155),
+      description: plainText(product.description).slice(0, 155),
       openGraph: { images: product.images[0] ? [product.images[0].url] : [] },
     };
   } catch {
@@ -33,7 +37,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
     '@type': 'Product',
     name: product.title,
     image: product.images.map((i) => i.url),
-    description: product.description,
+    description: plainText(product.description),
     brand: product.brand ?? undefined,
     offers: {
       '@type': 'Offer',

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowLeft, Upload } from 'lucide-react';
 import { api, ApiError, uploadImage } from '@/lib/api';
 import { Select } from '@/components/Select';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface VariantRow {
   id?: string;
@@ -150,7 +151,10 @@ export function ProductEditor() {
         <div className="space-y-5 lg:col-span-2">
           <div className="card space-y-4 p-5">
             <div><label className="label">Title</label><input className="input" value={form.title} onChange={set('title')} required /></div>
-            <div><label className="label">Description</label><textarea className="input h-28" value={form.description} onChange={set('description')} required /></div>
+            <div>
+              <label className="label">Description</label>
+              <RichTextEditor value={form.description} onChange={(html) => setForm((f) => ({ ...f, description: html }))} />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="label">Base Price (PKR)</label><input type="number" className="input" value={form.basePrice} onChange={set('basePrice')} required /></div>
               <div><label className="label">Sale Price (optional)</label><input type="number" className="input" value={form.salePrice} onChange={set('salePrice')} /></div>

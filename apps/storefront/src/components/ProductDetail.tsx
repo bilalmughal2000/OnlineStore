@@ -218,7 +218,9 @@ export function ProductDetail({ product }: { product: FullProduct }) {
             ))}
           </div>
           <div className="prose prose-sm mt-4 max-w-none text-ink/80">
-            {tab === 'Description' && <p>{product.description}</p>}
+            {tab === 'Description' && (
+              <div dangerouslySetInnerHTML={{ __html: product.description }} />
+            )}
             {tab === 'Size & Fit' && (
               <div>
                 <p>Model is 5&apos;7&quot; wearing size M. Regular fit.</p>
