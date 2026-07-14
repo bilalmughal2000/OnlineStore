@@ -28,7 +28,7 @@ adminCatalogRouter.get(
     const status = req.query.status ? String(req.query.status) : undefined;
 
     const where: Prisma.ProductWhereInput = {};
-    if (search) where.title = { contains: search, mode: 'insensitive' };
+    if (search) where.title = { contains: search };
     if (status) where.status = status as never;
 
     const [total, items] = await Promise.all([

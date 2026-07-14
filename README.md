@@ -8,9 +8,9 @@ A modern, mobile-first online clothing store built for the Pakistani market: sto
 |---|---|
 | Storefront | Next.js 14 (App Router, SSR/SEO) · Tailwind · TypeScript |
 | Admin panel | React 18 + Vite SPA · React Router · Recharts · Tailwind |
-| API | Express + TypeScript · Prisma · PostgreSQL · Redis · JWT |
+| API | Express + TypeScript · Prisma · MySQL · Redis · JWT |
 | Shared | `@store/database` (Prisma), `@store/shared-types` (Zod schemas) |
-| Tooling | npm workspaces · Docker Compose (Postgres + Redis) |
+| Tooling | npm workspaces · Docker Compose (MySQL + Redis) |
 
 ## Monorepo layout
 
@@ -27,7 +27,7 @@ packages/
 ## Prerequisites
 
 - Node.js 20+
-- Docker (for local Postgres + Redis) — or point `DATABASE_URL`/`REDIS_URL` at managed instances
+- Docker (for local MySQL + Redis) — or point `DATABASE_URL`/`REDIS_URL` at managed instances
 
 ## Quick start
 
@@ -35,7 +35,7 @@ packages/
 # 1. Environment
 cp .env.example .env          # already done if .env exists
 
-# 2. Start Postgres + Redis (Docker). Ports: Postgres 5433, Redis 6380.
+# 2. Start MySQL + Redis (Docker). Ports: MySQL 3307, Redis 6380.
 npm run db:up
 
 # 3. Install, build shared package, migrate schema, seed demo data
@@ -97,7 +97,7 @@ Notifications never block or fail order placement (errors are logged only).
 
 | Command | Description |
 |---|---|
-| `npm run db:up` / `db:down` | Start / stop Postgres + Redis |
+| `npm run db:up` / `db:down` | Start / stop MySQL + Redis |
 | `npm run db:migrate` | Run Prisma migrations (auto-loads root `.env`) |
 | `npm run db:seed` | Reseed demo data (idempotent — clears first) |
 | `npm run db:reset` | Drop, re-migrate, reseed |
@@ -109,7 +109,7 @@ Notifications never block or fail order placement (errors are logged only).
 Designed to run on a Hostinger/GoDaddy **VPS** (not shared hosting). See `deploy/` for a PM2 ecosystem file and an Nginx reverse-proxy sample. Outline:
 
 1. Provision Ubuntu VPS (4 GB / 2 vCPU recommended), install Node 20, Nginx, PM2.
-2. Postgres + Redis: self-host (Docker/apt) or use managed (Supabase/Neon + Upstash).
+2. MySQL + Redis: self-host (Docker/apt) or use managed (PlanetScale/managed MySQL + Upstash).
 3. `npm ci && npm run build && npm run db:migrate:deploy -w @store/database`
 4. `pm2 start deploy/ecosystem.config.cjs` (API + storefront under PM2).
 5. Nginx reverse-proxies 80/443 → apps; Cloudflare or Certbot for SSL.

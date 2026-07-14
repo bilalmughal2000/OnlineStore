@@ -38,13 +38,13 @@ productsRouter.get(
     if (q.search) {
       and.push({
         OR: [
-          { title: { contains: q.search, mode: 'insensitive' } },
-          { description: { contains: q.search, mode: 'insensitive' } },
-          { brand: { contains: q.search, mode: 'insensitive' } },
+          { title: { contains: q.search } },
+          { description: { contains: q.search } },
+          { brand: { contains: q.search } },
         ],
       });
     }
-    if (q.brand) and.push({ brand: { equals: q.brand, mode: 'insensitive' } });
+    if (q.brand) and.push({ brand: { equals: q.brand } });
     if (q.onSale) and.push({ salePrice: { not: null } });
     if (q.minPrice != null) and.push({ basePrice: { gte: q.minPrice } });
     if (q.maxPrice != null) and.push({ basePrice: { lte: q.maxPrice } });
@@ -53,7 +53,7 @@ productsRouter.get(
         variants: {
           some: {
             ...(q.size ? { size: q.size } : {}),
-            ...(q.color ? { color: { equals: q.color, mode: 'insensitive' } } : {}),
+            ...(q.color ? { color: { equals: q.color } } : {}),
             ...(q.inStock ? { stock: { gt: 0 } } : {}),
           },
         },
@@ -109,8 +109,8 @@ productsRouter.get(
       where: {
         status: ProductStatus.PUBLISHED,
         OR: [
-          { title: { contains: term, mode: 'insensitive' } },
-          { brand: { contains: term, mode: 'insensitive' } },
+          { title: { contains: term } },
+          { brand: { contains: term } },
         ],
       },
       select: {

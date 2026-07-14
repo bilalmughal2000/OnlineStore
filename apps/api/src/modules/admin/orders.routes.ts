@@ -31,8 +31,8 @@ adminOrdersRouter.get(
     if (req.query.paymentMethod) where.paymentMethod = String(req.query.paymentMethod) as never;
     if (req.query.search) {
       where.OR = [
-        { orderNumber: { contains: String(req.query.search), mode: 'insensitive' } },
-        { user: { email: { contains: String(req.query.search), mode: 'insensitive' } } },
+        { orderNumber: { contains: String(req.query.search) } },
+        { user: { email: { contains: String(req.query.search) } } },
       ];
     }
     const [total, items] = await Promise.all([
@@ -117,7 +117,7 @@ adminOrdersRouter.get(
       where: {
         role: 'CUSTOMER',
         ...(search
-          ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] }
+          ? { OR: [{ name: { contains: search } }, { email: { contains: search } }] }
           : {}),
       },
       include: { _count: { select: { orders: true } }, orders: { select: { total: true } } },

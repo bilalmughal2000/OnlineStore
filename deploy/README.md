@@ -5,14 +5,14 @@ It can **also** run on **cPanel** — but only on plans with Node.js app support
 with external database/Redis. See [Alternative: cPanel hosting](#alternative-cpanel-hosting) below.
 
 ## Recommended spec
-4 GB RAM / 2 vCPU minimum (Node API + Next.js SSR + Postgres + Redis on one box). Offload Postgres/Redis to managed tiers (Supabase/Neon, Upstash) if RAM is tight.
+4 GB RAM / 2 vCPU minimum (Node API + Next.js SSR + MySQL + Redis on one box). Offload MySQL/Redis to managed tiers (PlanetScale / managed MySQL, Upstash) if RAM is tight.
 
 ## One-time server setup
 ```bash
 sudo apt update && sudo apt install -y nginx
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sudo apt install -y nodejs
 sudo npm i -g pm2
-# Postgres + Redis: apt/docker locally, or use managed URLs in .env
+# MySQL + Redis: apt/docker locally, or use managed URLs in .env
 ```
 
 ## Deploy
@@ -33,39 +33,36 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## Database connection pooling
 
-Postgres caps total connections (`max_connections`, default ~100) and each idle
+MySQL caps total connections (`max_connections`, default ~151) and each idle
 connection costs RAM — critical on a small VPS. The app reuses a bounded pool of
 connections instead of opening one per request.
 
 **Two URLs (see `.env.example`):**
 - `DATABASE_URL` — runtime queries. Carries `connection_limit` + `pool_timeout`.
-  Point it at a **pooler** (PgBouncer / Supabase / Neon pooler) in production.
+  Point it at a **pooler** (ProxySQL, or a managed MySQL's pooled endpoint) in production.
 - `DIRECT_DATABASE_URL` — a **direct** (non-pooled) connection used only for
-  migrations/introspection (PgBouncer transaction mode can't run them).
+  migrations/introspection.
 
-**Sizing rule — never exceed Postgres's limit:**
+**Sizing rule — never exceed MySQL's limit:**
 ```
 connection_limit × (PM2 instances) ≤ max_connections − headroom(~20)
 ```
-Examples on a 2-vCPU box with `max_connections=100`:
+Examples on a 2-vCPU box with `max_connections=151`:
 - 1 API process → `connection_limit=10` (default here)
 - 2 API processes (both cores) → `connection_limit=10` each = 20 total ✓
 
-**PgBouncer (transaction mode):** add `pgbouncer=true` to `DATABASE_URL` (Prisma
-then disables prepared statements, which that mode doesn't support), and keep
-`DIRECT_DATABASE_URL` pointing at the real Postgres port (5432), not PgBouncer (6432).
-
-**Managed DB (Supabase/Neon):** use their **pooler** connection string for
-`DATABASE_URL` and their **direct** string for `DIRECT_DATABASE_URL` — their free
-tiers enforce low connection limits, so the pooler is mandatory at any real traffic.
+**Managed MySQL (PlanetScale / RDS / cloud):** use the provider's connection
+string for both URLs (pooled endpoint for `DATABASE_URL` if offered). Note:
+`prisma migrate dev` needs privileges to create a temporary shadow database — in
+production use `migrate deploy` (no shadow DB), so a limited DB user is fine.
 
 ## SSL
 Use Cloudflare (proxy DNS, free SSL) **or** Certbot: `sudo certbot --nginx`.
 
 ## Backups (cron)
 ```bash
-# nightly pg_dump to Backblaze/S3
-0 2 * * * pg_dump "$DATABASE_URL" | gzip > /backups/store-$(date +\%F).sql.gz
+# nightly mysqldump to Backblaze/S3
+0 2 * * * mysqldump -h HOST -uUSER -pPASS clothing_store | gzip > /backups/store-$(date +\%F).sql.gz
 ```
 
 ## CI/CD
@@ -83,12 +80,12 @@ cPanel can host this app, **but with hard constraints**. Read this first.
   Namecheap, A2, HostGator business tiers). Check cPanel home → *Software* section.
 - **Won't work:** legacy PHP-only shared hosting with no Node.js app feature. There's
   no way to run a persistent Node/Next process there.
-- cPanel gives you **MySQL/MariaDB (not PostgreSQL)** and **no Redis**, usually no root.
+- cPanel gives you **MySQL/MariaDB** (which this app now uses ✓) and **no Redis**, usually no root.
 
 ### What changes vs the VPS setup
 | Concern | On cPanel |
 |---|---|
-| **Database** | cPanel has no PostgreSQL. **Recommended:** use external managed Postgres (**Supabase/Neon**) — set `DATABASE_URL`/`DIRECT_DATABASE_URL` to it, **no code change**. *(Alternative: switch Prisma to MySQL — `provider = "mysql"` in `schema.prisma` + re-migrate. More work; avoid unless required.)* |
+| **Database** | ✅ The app runs on **MySQL** — use cPanel's **native MySQL** directly. Create a database + user in *MySQL® Databases*, then set `DATABASE_URL`/`DIRECT_DATABASE_URL` to `mysql://user:pass@localhost:3306/dbname`. Run `migrate deploy` (not `migrate dev`, which needs shadow-DB privileges the cPanel user lacks). |
 | **Redis** | No Redis on shared cPanel. Use **Upstash** (external) or leave it unset — the cache is fail-open and rate-limiting falls back to in-memory, so the app still runs. |
 | **Images** | Keep **Cloudinary** (already wired) — cPanel disk isn't a good media store. |
 | **Process mgr** | **Passenger** manages the Node process (no PM2). It sets `PORT` (the API already honours it). |
@@ -111,9 +108,9 @@ generator client {
    ```bash
    npm run build          # api → dist, storefront → .next, admin → dist
    ```
-2. **Provision an external database** (Supabase/Neon) and run migrations against it:
+2. **Create the MySQL database** in cPanel → *MySQL® Databases* (a DB + a user, granted all privileges), then run migrations against it:
    ```bash
-   DIRECT_DATABASE_URL="<neon direct url>" npm run migrate:deploy -w @store/database
+   DIRECT_DATABASE_URL="mysql://user:pass@localhost:3306/dbname" npm run migrate:deploy -w @store/database
    npm run db:seed        # optional first-time demo data
    ```
 3. **Upload the code** — cPanel **Git Version Control** (clone your repo) or File Manager (zip upload). Exclude `node_modules` (install it on the server in step 4).
@@ -138,5 +135,5 @@ generator client {
 ### Notes / gotchas
 - Each Node app on cPanel gets its **own subdomain**; there's no root Nginx to reverse-proxy `/api` under one domain — hence the `api.` subdomain + absolute `NEXT_PUBLIC_API_URL`.
 - Passenger **restarts** the app when you touch `tmp/restart.txt` in the app root (cPanel's "Restart" button does this).
-- Backups: if the DB is external (Supabase/Neon), backups are handled by that provider — no cron needed.
+- Backups: use cPanel's built-in backup, or a nightly `mysqldump` (cPanel → Cron Jobs). Managed MySQL providers handle backups for you.
 - If you outgrow cPanel limits, the same code moves to the VPS flow above unchanged.

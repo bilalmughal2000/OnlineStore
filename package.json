@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "scripts": {
-    "db:up": "docker compose up -d postgres redis",
+    "db:up": "docker compose up -d mysql redis",
     "db:down": "docker compose down",
     "db:generate": "npm run generate -w @store/database",
     "db:migrate": "npm run migrate -w @store/database",
