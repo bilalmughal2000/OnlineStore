@@ -6,6 +6,7 @@ import { adminCatalogRouter } from './catalog.routes';
 import { adminOrdersRouter } from './orders.routes';
 import { adminMarketingRouter } from './marketing.routes';
 import { adminUploadsRouter } from './uploads.routes';
+import { adminUsersRouter } from './users.routes';
 
 export const adminRouter = Router();
 
@@ -24,6 +25,7 @@ adminRouter.use((req, res, next) => {
 
 adminRouter.use('/dashboard', adminDashboardRouter);
 adminRouter.use('/uploads', adminUploadsRouter);
+adminRouter.use('/users', adminUsersRouter);
 adminRouter.use('/orders', adminOrdersRouter);
 adminRouter.use('/', adminCatalogRouter); // /products, /categories, /attributes
 adminRouter.use('/', adminMarketingRouter); // /coupons, /sections, /banners, /reviews, /settings, /pages

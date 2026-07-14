@@ -11,6 +11,7 @@ import { OrderDetail } from '@/pages/OrderDetail';
 import { Coupons } from '@/pages/Coupons';
 import { Sections } from '@/pages/Sections';
 import { Customers } from '@/pages/Customers';
+import { Users } from '@/pages/Users';
 import { Reviews } from '@/pages/Reviews';
 import { Settings } from '@/pages/Settings';
 
@@ -41,6 +42,7 @@ export function App() {
         <Route path="coupons" element={<Coupons />} />
         <Route path="sections" element={<Sections />} />
         <Route path="customers" element={<Customers />} />
+        <Route path="users" element={<Users />} />
         <Route path="reviews" element={<Reviews />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />

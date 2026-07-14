@@ -7,6 +7,7 @@ import {
   Ticket,
   LayoutTemplate,
   Users,
+  UserCog,
   Star,
   Settings,
   LogOut,
@@ -21,6 +22,7 @@ const NAV = [
   { to: '/coupons', label: 'Coupons', icon: Ticket },
   { to: '/sections', label: 'Homepage', icon: LayoutTemplate },
   { to: '/customers', label: 'Customers', icon: Users },
+  { to: '/users', label: 'Users', icon: UserCog },
   { to: '/reviews', label: 'Reviews', icon: Star },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
