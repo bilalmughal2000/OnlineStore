@@ -9,7 +9,15 @@ import type { Category, Product } from '@/lib/types';
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const { banners, sections, categories, testimonials } = await api.homepage();
+  // Fail-safe: if the API is unreachable at build time (e.g. CI), still build a
+  // valid (empty) page; ISR fills it in at runtime.
+  let data: Awaited<ReturnType<typeof api.homepage>>;
+  try {
+    data = await api.homepage();
+  } catch {
+    data = { banners: [], sections: [], categories: [], testimonials: [] };
+  }
+  const { banners, sections, categories, testimonials } = data;
 
   return (
     <div>
