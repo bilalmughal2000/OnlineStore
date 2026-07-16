@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"exit: $?\")",
+      "Bash(command -v nginx)",
+      "Bash(nginx -t -c __TRACKED_VAR__/deploy/nginx.conf)",
+      "Bash(git commit -q -m ' *)"
+    ]
+  }
+}
