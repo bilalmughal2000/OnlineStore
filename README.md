@@ -116,6 +116,13 @@ Notifications never block or fail order placement (errors are logged only).
 | `npm run db:studio` -w @store/database | Prisma Studio |
 | `npm run build` | Build all packages + apps for production |
 
+## Deploying to Vercel
+
+Storefront and admin on Vercel, API + MySQL on Railway (Vercel hosts no database,
+and the Express API is a poor fit for serverless — the guide explains why):
+
+**→ See [docs/VERCEL_DEPLOY.md](docs/VERCEL_DEPLOY.md)**
+
 ## Testing on cPanel subdomains
 
 To try the whole stack (storefront + admin + API) on cPanel subdomains without
