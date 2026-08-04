@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000",
+    "//env": "Next only auto-loads .env from this directory, so the monorepo's root .env is injected via dotenv-cli — matching how @store/database loads it. NEXT_PUBLIC_* vars are inlined at build time, so `build` needs it too, not just `dev`.",
+    "//node-env": "The root .env sets NODE_ENV=development for the API. It must NOT reach `build` or `start`: Next would load its development React runtime and prerendering fails outright. dotenv-cli does not overwrite a variable already present in the environment, so the inline NODE_ENV below wins.",
+    "dev": "dotenv -e ../../.env -- next dev -p 3000",
+    "build": "NODE_ENV=production dotenv -e ../../.env -- next build",
+    "start": "NODE_ENV=production dotenv -e ../../.env -- next start -p 3000",
     "lint": "next lint"
   },
   "dependencies": {
     "@store/shared-types": "*",
+    "dotenv-cli": "^7.4.4",
     "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",
     "next": "14.2.15",

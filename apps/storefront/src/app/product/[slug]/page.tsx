@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { api } from '@/lib/api';
+import { absoluteUrl } from '@/lib/site';
 import { ProductDetail } from '@/components/ProductDetail';
 import { ProductReviews } from '@/components/ProductReviews';
 import { ProductCard } from '@/components/ProductCard';
@@ -13,10 +14,18 @@ const plainText = (html: string) =>
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   try {
     const { product } = await api.product(params.slug);
+    const description = plainText(product.description).slice(0, 155);
     return {
-      title: product.title,
-      description: plainText(product.description).slice(0, 155),
-      openGraph: { images: product.images[0] ? [product.images[0].url] : [] },
+      title: product.seoTitle || product.title,
+      description: product.seoDescription || description,
+      alternates: { canonical: `/product/${params.slug}` },
+      openGraph: {
+        type: 'website',
+        title: product.title,
+        description,
+        url: `/product/${params.slug}`,
+        images: product.images[0] ? [product.images[0].url] : [],
+      },
     };
   } catch {
     return { title: 'Product' };
@@ -32,27 +41,70 @@ export default async function ProductPage({ params }: { params: { slug: string }
   }
   const { product, related } = data!;
 
-  // schema.org structured data for SEO (Section 8).
+  const inStock = product.variants.some((v) => v.stock > 0);
+
+  // schema.org structured data for SEO (Section 8). Google uses this to render
+  // rich product results: price, availability, and review stars.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.title,
     image: product.images.map((i) => i.url),
     description: plainText(product.description),
-    brand: product.brand ?? undefined,
+    sku: product.sku ?? undefined,
+    brand: product.brand ? { '@type': 'Brand', name: product.brand } : undefined,
+    material: product.fabric ?? undefined,
     offers: {
       '@type': 'Offer',
+      url: absoluteUrl(`/product/${product.slug}`),
       priceCurrency: 'PKR',
       price: effectivePrice(product),
-      availability: product.variants.some((v) => v.stock > 0)
-        ? 'https://schema.org/InStock'
-        : 'https://schema.org/OutOfStock',
+      availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
     },
+    // Only emit when real reviews exist — Google rejects (and can penalise)
+    // aggregateRating with a zero count.
+    aggregateRating:
+      product.ratingCount > 0
+        ? {
+            '@type': 'AggregateRating',
+            ratingValue: product.ratingAvg.toFixed(1),
+            reviewCount: product.ratingCount,
+          }
+        : undefined,
+  };
+
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: absoluteUrl('/') },
+      ...(product.category
+        ? [
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: product.category.name,
+              item: absoluteUrl(`/category/${product.category.slug}`),
+            },
+          ]
+        : []),
+      {
+        '@type': 'ListItem',
+        position: product.category ? 3 : 2,
+        name: product.title,
+        item: absoluteUrl(`/product/${product.slug}`),
+      },
+    ],
   };
 
   return (
     <div className="container-x py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <ProductDetail product={product} />
 
       <ProductReviews

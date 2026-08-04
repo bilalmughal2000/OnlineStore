@@ -125,6 +125,35 @@ contentRouter.get(
   }),
 );
 
+// GET /content/sitemap — every indexable URL slug + its last-modified date.
+// Feeds the storefront's app/sitemap.ts. Deliberately lean (slug + date only)
+// so the whole catalogue fits in one response instead of paging /products.
+contentRouter.get(
+  '/sitemap',
+  asyncHandler(async (_req, res) => {
+    const data = await cached('content:sitemap', 600, async () => {
+      const [products, categories, pages] = await Promise.all([
+        prisma.product.findMany({
+          where: { status: ProductStatus.PUBLISHED },
+          select: { slug: true, updatedAt: true },
+          orderBy: { updatedAt: 'desc' },
+        }),
+        prisma.category.findMany({
+          where: { isActive: true },
+          select: { slug: true },
+          orderBy: { sortOrder: 'asc' },
+        }),
+        prisma.staticPage.findMany({
+          where: { isPublished: true },
+          select: { slug: true, updatedAt: true },
+        }),
+      ]);
+      return { products: serialize(products), categories: serialize(categories), pages: serialize(pages) };
+    });
+    res.json(data);
+  }),
+);
+
 // GET /content/settings — public store settings (name, currency, shipping, enabled payments)
 contentRouter.get(
   '/settings',

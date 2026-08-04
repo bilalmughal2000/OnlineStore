@@ -34,14 +34,26 @@ export const PROVINCES = [
   'Azad Kashmir',
 ] as const;
 
+// Messages are written for the shopper, not the developer. They surface
+// verbatim on the checkout form, so Zod's defaults ("String must contain at
+// least 5 character(s)") are replaced with something actionable.
 export const addressSchema = z.object({
   label: z.string().min(1).default('Home'),
-  fullName: z.string().min(2),
-  phone: z.string().regex(/^(\+92|0)?3\d{9}$/, 'Enter a valid Pakistani mobile number'),
-  addressLine: z.string().min(5),
-  city: z.string().min(2),
-  province: z.enum(PROVINCES),
-  postalCode: z.string().optional(),
+  fullName: z.string().trim().min(2, 'Enter the full name for delivery'),
+  phone: z
+    .string()
+    .trim()
+    .regex(
+      /^(\+92|0)?3\d{9}$/,
+      'Enter a valid Pakistani mobile number, e.g. 0300 1234567',
+    ),
+  addressLine: z
+    .string()
+    .trim()
+    .min(5, 'Enter the full address — house/flat number, street and area'),
+  city: z.string().trim().min(2, 'Select your city'),
+  province: z.enum(PROVINCES, { errorMap: () => ({ message: 'Select your province' }) }),
+  postalCode: z.string().trim().optional(),
   isDefault: z.boolean().optional(),
 });
 
@@ -58,6 +70,16 @@ export const updateCartItemSchema = z.object({
 // ─────────────────────────── Checkout / Order ───────────────
 export const paymentMethods = ['COD', 'STRIPE', 'JAZZCASH', 'EASYPAISA'] as const;
 
+// Meta ad-attribution signals read from the browser at checkout. The storefront
+// and API are separate origins, so Meta's _fbp/_fbc cookies never reach the API
+// on their own — the client forwards them here for the Conversions API.
+// Purely additive: omitting them only lowers Meta's match quality.
+export const attributionSchema = z.object({
+  fbp: z.string().max(200).optional(),
+  fbc: z.string().max(500).optional(),
+  eventSourceUrl: z.string().max(500).optional(),
+});
+
 export const checkoutSchema = z.object({
   addressId: z.string().optional(),
   newAddress: addressSchema.optional(),
@@ -65,6 +87,13 @@ export const checkoutSchema = z.object({
   couponCode: z.string().optional(),
   deliveryMethod: z.enum(['standard', 'express']).default('standard'),
   notes: z.string().max(500).optional(),
+  attribution: attributionSchema.optional(),
+  // Guest checkout: no account is created, so this is the only way to reach the
+  // buyer afterwards. Optional here because logged-in users don't send it — the
+  // route requires it when there's no authenticated user.
+  // .trim() runs before .email(), so a pasted address with stray whitespace —
+  // routine on mobile keyboards — isn't rejected as invalid.
+  guestEmail: z.string().trim().max(191).email('Enter a valid email address').optional(),
 });
 
 export const orderStatuses = [
@@ -85,6 +114,11 @@ export const updateOrderStatusSchema = z.object({
 
 // ─────────────────────────── Product (admin) ────────────────
 export const productStatuses = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
+
+// Vocabularies the Meta catalogue accepts verbatim for `gender` / `age_group`.
+// Kept in sync with the ProductGender / ProductAgeGroup Prisma enums.
+export const productGenders = ['MALE', 'FEMALE', 'UNISEX'] as const;
+export const productAgeGroups = ['NEWBORN', 'INFANT', 'TODDLER', 'KIDS', 'ADULT'] as const;
 
 // A size chart can be an uploaded image and/or a structured table.
 export const sizeChartTableSchema = z.object({
@@ -114,6 +148,10 @@ export const productInputSchema = z.object({
   isFeatured: z.boolean().default(false),
   brand: z.string().optional(),
   fabric: z.string().optional(),
+  // Product-feed attributes (Meta catalogue / Google Shopping).
+  gender: z.enum(productGenders).optional().nullable(),
+  ageGroup: z.enum(productAgeGroups).optional().nullable(),
+  googleProductCategory: z.string().max(191).optional().nullable(),
   categoryId: z.string().optional().nullable(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),

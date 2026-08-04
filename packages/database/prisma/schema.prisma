@@ -61,6 +61,25 @@ enum CouponType {
   FIXED
 }
 
+// ── Meta / Google product-feed attributes ───────────────────────────
+// Values mirror the exact vocabularies the Meta catalogue accepts for
+// `gender` and `age_group`. Apparel items missing them are commonly
+// rejected or under-delivered, so they're modelled as enums rather than
+// free text to stop invalid values reaching the feed.
+enum ProductGender {
+  MALE
+  FEMALE
+  UNISEX
+}
+
+enum ProductAgeGroup {
+  NEWBORN
+  INFANT
+  TODDLER
+  KIDS
+  ADULT
+}
+
 enum SectionType {
   PRODUCT_GRID
   BANNER
@@ -108,7 +127,9 @@ model RefreshToken {
 
 model Address {
   id          String  @id @default(cuid())
-  userId      String
+  // Null for guest checkout: the address belongs to the order, not to an
+  // account. Guests place orders without signing up (see Order.guestEmail).
+  userId      String?
   label       String  @default("Home")
   fullName    String
   phone       String
@@ -118,7 +139,7 @@ model Address {
   postalCode  String?
   isDefault   Boolean @default(false)
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders Order[]
 
   @@index([userId])
@@ -166,6 +187,14 @@ model Product {
   sizeChartTable Json?         // optional structured table: { headers: string[], rows: string[][] }
   ratingAvg      Float         @default(0)
   ratingCount    Int           @default(0)
+  // Product-feed attributes (Meta catalogue / Google Shopping). Optional so
+  // existing products keep working; items missing them still appear in the
+  // feed, just with weaker targeting.
+  gender               ProductGender?
+  ageGroup             ProductAgeGroup?
+  // Google product taxonomy id or full path, e.g. "1604" or
+  // "Apparel & Accessories > Clothing > Dresses". Meta uses the same taxonomy.
+  googleProductCategory String?
   categoryId     String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -273,7 +302,15 @@ model CartItem {
 model Order {
   id            String        @id @default(cuid())
   orderNumber   String        @unique
-  userId        String
+  // Null for guest orders — checkout does not require an account. Contact
+  // details then live in guestEmail + the order's Address (fullName / phone).
+  userId        String?
+  // Required for guest orders; the only way to reach the buyer afterwards.
+  guestEmail    String?
+  // Unguessable key that lets a guest open their own order (confirmation page,
+  // link in the confirmation email) without logging in. Order ids appear in
+  // URLs and logs, so they are not treated as secrets.
+  guestToken    String?       @unique
   status        OrderStatus   @default(PLACED)
   paymentMethod PaymentMethod
   paymentStatus PaymentStatus @default(PENDING)
@@ -290,7 +327,7 @@ model Order {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  user       User             @relation(fields: [userId], references: [id])
+  user       User?            @relation(fields: [userId], references: [id])
   address    Address?         @relation(fields: [addressId], references: [id])
   items      OrderItem[]
   payments   Payment[]
@@ -299,6 +336,8 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  // Guest order lookup + per-email coupon limits.
+  @@index([guestEmail])
 }
 
 model OrderItem {

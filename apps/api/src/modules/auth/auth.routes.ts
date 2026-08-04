@@ -18,40 +18,12 @@ import {
   signAccessToken,
   ttlToMs,
 } from '../../lib/jwt';
+import { issueTokens, toAuthUser } from '../../lib/session';
 import { env } from '../../env';
 import { badRequest, unauthorized } from '../../lib/errors';
 import { z } from 'zod';
 
 export const authRouter = Router();
-
-function toAuthUser(u: {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  role: string;
-}): AuthUser {
-  return {
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    phone: u.phone,
-    role: u.role as AuthUser['role'],
-  };
-}
-
-async function issueTokens(userId: string, role: AuthUser['role']) {
-  const accessToken = signAccessToken({ sub: userId, role });
-  const { token: refreshToken, tokenHash } = generateRefreshToken();
-  await prisma.refreshToken.create({
-    data: {
-      userId,
-      tokenHash,
-      expiresAt: new Date(Date.now() + ttlToMs(env.jwt.refreshTtl)),
-    },
-  });
-  return { accessToken, refreshToken };
-}
 
 authRouter.post(
   '/register',

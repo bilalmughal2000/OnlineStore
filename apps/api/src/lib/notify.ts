@@ -40,7 +40,11 @@ async function sendEmail(to: string | null, subject: string, html: string): Prom
   const from = process.env.EMAIL_FROM ?? 'orders@store.pk';
   const tx = getTransporter();
   if (!tx) {
+    // Also surface any links so a developer can follow them from the console —
+    // guest order links carry a token and are otherwise only in a real inbox.
+    const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
     console.log(`[email:dev] To: ${to} | ${subject}`);
+    for (const l of links) console.log(`[email:dev]   link: ${l}`);
     return;
   }
   try {
@@ -105,6 +109,7 @@ async function sendWhatsApp(phone: string | null, params: string[]): Promise<voi
 
 // ─────────────────────────── Public API ───────────────────────────
 interface OrderLike {
+  id: string;
   orderNumber: string;
   total: unknown;
   paymentMethod: string;
@@ -128,17 +133,30 @@ const STATUS_LABEL: Record<string, string> = {
   RETURNED: 'returned',
 };
 
-export function notifyOrderPlaced(order: OrderLike, to: Recipient): void {
+export function notifyOrderPlaced(
+  order: OrderLike,
+  to: Recipient,
+  // Guest orders have no account to log into, so the email carries a tokenised
+  // link — it's the buyer's only way back to their order.
+  opts: { guestToken?: string | null } = {},
+): void {
   const total = fmtPKR(toNum(order.total as never));
   const itemsHtml = (order.items ?? [])
     .map((i) => `<li>${i.productTitle} × ${i.quantity} — ${fmtPKR(toNum(i.price as never) * i.quantity)}</li>`)
     .join('');
+  const storefrontUrl = (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const orderUrl = opts.guestToken
+    ? `${storefrontUrl}/order-confirmation/${order.id}?token=${opts.guestToken}`
+    : `${storefrontUrl}/account/orders`;
+  const linkLabel = opts.guestToken ? 'View your order' : 'View your orders';
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:560px">
       <h2>Thank you for your order, ${to.name.split(' ')[0]}!</h2>
       <p>Your order <strong>${order.orderNumber}</strong> has been placed.</p>
       <ul>${itemsHtml}</ul>
       <p><strong>Total: ${total}</strong> — Payment: ${order.paymentMethod}</p>
+      <p><a href="${orderUrl}">${linkLabel}</a></p>
+      ${opts.guestToken ? '<p style="color:#666;font-size:13px">Keep this email — the link above is how you check your order status.</p>' : ''}
       <p>We'll notify you as your order progresses. Thank you for shopping with Aabroo.</p>
     </div>`;
 
@@ -147,6 +165,39 @@ export function notifyOrderPlaced(order: OrderLike, to: Recipient): void {
     sendEmail(to.email, `Order ${order.orderNumber} confirmed`, html),
     sendWhatsApp(to.phone, [to.name.split(' ')[0], order.orderNumber, total]),
   ]);
+}
+
+/**
+ * Emails a guest the links to the orders placed with their address.
+ *
+ * This is what makes "find my past orders" safe: the links only ever reach the
+ * inbox that owns the email, so receiving one proves possession. That's the
+ * property auto-linking guest orders at signup lacks, since registration never
+ * verifies the address.
+ */
+export function notifyOrderLinks(
+  email: string,
+  orders: { id: string; orderNumber: string; guestToken: string | null; createdAt: Date }[],
+): void {
+  const storefrontUrl = (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const rows = orders
+    .filter((o) => o.guestToken)
+    .map(
+      (o) =>
+        `<li><a href="${storefrontUrl}/order-confirmation/${o.id}?token=${o.guestToken}">${o.orderNumber}</a>` +
+        ` — ${new Date(o.createdAt).toLocaleDateString('en-PK')}</li>`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;max-width:560px">
+      <h2>Your orders at Aabroo</h2>
+      <p>Here are the orders placed with this email address:</p>
+      <ul>${rows}</ul>
+      <p style="color:#666;font-size:13px">If you didn't request this, you can ignore this email.</p>
+    </div>`;
+
+  void sendEmail(email, 'Your Aabroo orders', html);
 }
 
 export function notifyOrderStatus(order: OrderLike, to: Recipient): void {

@@ -31,4 +31,12 @@ export const api = {
       30,
     ),
   page: (slug: string) => get<{ page: { title: string; content: string } }>(`/content/pages/${slug}`),
+  // Slugs + last-modified dates for app/sitemap.ts. Cached an hour — search
+  // engines don't need this any fresher than that.
+  sitemap: () =>
+    get<{
+      products: { slug: string; updatedAt: string }[];
+      categories: { slug: string }[];
+      pages: { slug: string; updatedAt: string }[];
+    }>('/content/sitemap', 3600),
 };

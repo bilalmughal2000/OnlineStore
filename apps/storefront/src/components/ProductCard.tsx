@@ -68,7 +68,9 @@ export function ProductCard({ product }: { product: Product }) {
           type="button"
           aria-label={wl ? 'Remove from wishlist' : 'Add to wishlist'}
           aria-pressed={wl}
-          onClick={() => toggleWishlist(product.id)}
+          onClick={() =>
+            toggleWishlist(product.id, { name: product.title, price: effectivePrice(product) })
+          }
           className="absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-sm backdrop-blur transition hover:bg-white"
         >
           <Heart size={18} className={wl ? 'fill-sale text-sale' : 'text-ink/60'} />

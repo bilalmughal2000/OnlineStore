@@ -77,6 +77,13 @@ function LoginInner() {
             {mode === 'login' ? 'Sign up' : 'Log in'}
           </button>
         </p>
+        {/* Guests have no account to log into, so give them a way through. */}
+        <p className="mt-2 text-center text-sm text-ink/60">
+          Ordered as a guest?{' '}
+          <Link href="/order-lookup" className="font-medium text-accent hover:underline">
+            Find my order
+          </Link>
+        </p>
       </div>
     </div>
   );

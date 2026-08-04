@@ -65,6 +65,18 @@ npm run dev:admin        # http://localhost:5173
 
 **API** — JWT auth (access + rotating refresh, bcrypt), RBAC (server-enforced), catalog, cart with authoritative server-side pricing, orders with atomic stock decrement, coupons with usage limits, content/CMS, admin modules, rate limiting on auth/checkout, Swagger docs at `/docs`.
 
+## Marketing & analytics (Meta Ads, GA4, SEO)
+
+Meta Pixel, the server-side Conversions API, a product catalogue feed for
+Advantage+ / dynamic retargeting, GA4, and SEO (sitemap, robots, structured data)
+are implemented. They stay completely inactive until the relevant `.env` values
+are set, so dev environments send nothing.
+
+**→ See [docs/META_ADS.md](docs/META_ADS.md)** for what's built, the credentials
+you need, setup steps, verification, and how to launch and run campaigns.
+
+Catalogue feed: `GET /api/feed/products.xml`
+
 ## Payment gateways (Phase 4)
 
 COD is fully working. Stripe / JazzCash / EasyPaisa are structured as integration points:

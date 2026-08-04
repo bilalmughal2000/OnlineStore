@@ -23,6 +23,9 @@ export interface Product {
   basePrice: number;
   salePrice?: number | null;
   brand?: string | null;
+  sku?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   fabric?: string | null;
   fabricCare?: string | null;
   shippingReturns?: string | null;
@@ -40,6 +43,7 @@ export interface Category {
   id: string;
   name: string;
   slug: string;
+  description?: string | null;
   image?: string | null;
   children?: Category[];
 }

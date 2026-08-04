@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authRouter } from './modules/auth/auth.routes';
 import { productsRouter } from './modules/catalog/products.routes';
 import { categoriesRouter } from './modules/catalog/categories.routes';
+import { feedRouter } from './modules/catalog/feed.routes';
 import { cartRouter } from './modules/cart/cart.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
 import { accountRouter } from './modules/account/account.routes';
@@ -18,6 +19,9 @@ apiRouter.use('/auth', authRouter);
 apiRouter.use('/products', publicCache(60, 300), productsRouter);
 apiRouter.use('/categories', publicCache(300, 900), categoriesRouter);
 apiRouter.use('/content', publicCache(60, 300), contentRouter);
+// Product catalogue feed for Meta Commerce Manager / Google Merchant Center.
+// Sets its own Cache-Control (10 min) — Meta fetches at most hourly.
+apiRouter.use('/feed', feedRouter);
 // Personalised / mutating routes — never cached.
 apiRouter.use('/cart', cartRouter);
 apiRouter.use('/orders', ordersRouter);

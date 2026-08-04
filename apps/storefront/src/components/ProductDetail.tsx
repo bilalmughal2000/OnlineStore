@@ -1,12 +1,13 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Heart, Minus, Plus, Star, Truck } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { discountPct, effectivePrice, formatPKR } from '@/lib/format';
 import { useStore } from '@/providers/StoreProvider';
 import { ApiError } from '@/lib/client-api';
+import { trackViewItem } from '@/lib/analytics';
 import { SizeChartModal } from './SizeChartModal';
 
 type FullProduct = Product & { reviews?: any[] };
@@ -43,6 +44,23 @@ export function ProductDetail({ product }: { product: FullProduct }) {
   );
   const stock = variant?.stock ?? 0;
   const pct = discountPct(product);
+
+  const analyticsItem = useMemo(
+    () => ({
+      id: product.id,
+      name: product.title,
+      price: effectivePrice(product),
+      category: product.category?.name ?? null,
+      brand: product.brand ?? null,
+    }),
+    [product],
+  );
+
+  // ViewContent / view_item — the signal Meta's catalogue ads retarget on. Keyed
+  // on the product so client-side navigation between PDPs re-fires it.
+  useEffect(() => {
+    trackViewItem(analyticsItem);
+  }, [analyticsItem]);
 
   const handleAdd = async () => {
     if (!variant) return showToast('Please select options');
@@ -191,7 +209,7 @@ export function ProductDetail({ product }: { product: FullProduct }) {
             {stock === 0 ? 'Sold Out' : busy ? 'Adding…' : 'Add to Cart'}
           </button>
           <button
-            onClick={() => toggleWishlist(product.id)}
+            onClick={() => toggleWishlist(product.id, { name: product.title, price: analyticsItem.price })}
             className="btn-outline"
             aria-label={wl ? 'Remove from wishlist' : 'Add to wishlist'}
             aria-pressed={wl}

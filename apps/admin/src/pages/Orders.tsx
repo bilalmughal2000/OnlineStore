@@ -53,7 +53,17 @@ export function Orders() {
             {items.map((o) => (
               <tr key={o.id} className="hover:bg-stone-50">
                 <td className="td"><Link to={`/orders/${o.id}`} className="font-medium text-brand">{o.orderNumber}</Link></td>
-                <td className="td">{o.user?.name}<p className="text-xs text-stone-500">{o.user?.email}</p></td>
+                {/* Guest orders have no user row — fall back to the details
+                    captured at checkout so the row is never blank. */}
+                <td className="td">
+                  {o.user?.name ?? o.address?.fullName ?? '—'}
+                  {!o.user && (
+                    <span className="ml-2 rounded bg-stone-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-stone-600">
+                      Guest
+                    </span>
+                  )}
+                  <p className="text-xs text-stone-500">{o.user?.email ?? o.guestEmail ?? '—'}</p>
+                </td>
                 <td className="td">{o.paymentMethod} <span className="text-xs text-stone-400">({o.paymentStatus})</span></td>
                 <td className="td">{o.status.replace(/_/g, ' ')}</td>
                 <td className="td text-right font-medium">{formatPKR(o.total)}</td>

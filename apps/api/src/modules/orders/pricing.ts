@@ -56,7 +56,10 @@ function unitPriceOf(variant: {
  */
 export async function priceCart(
   items: { variantId: string; quantity: number }[],
-  opts: { couponCode?: string | null; userId?: string } = {},
+  // guestEmail stands in for userId on guest checkout so per-user coupon limits
+  // still apply — without it a guest could reuse a one-per-customer coupon
+  // indefinitely just by not logging in.
+  opts: { couponCode?: string | null; userId?: string | null; guestEmail?: string | null } = {},
 ): Promise<CartPricing> {
   const settings = await getSettings();
 
@@ -105,9 +108,14 @@ export async function priceCart(
       throw badRequest(`Coupon requires a minimum order of Rs. ${toNum(coupon.minOrderValue)}`);
     if (coupon.usageLimit != null && coupon.usedCount >= coupon.usageLimit)
       throw badRequest('Coupon usage limit reached');
-    if (coupon.perUserLimit != null && opts.userId) {
+    if (coupon.perUserLimit != null && (opts.userId || opts.guestEmail)) {
+      // Identify the customer by account when signed in, else by the email they
+      // check out with. Not airtight (a determined guest can use another
+      // address) but it closes the trivial "just don't log in" bypass.
       const used = await prisma.order.count({
-        where: { userId: opts.userId, couponCode: coupon.code },
+        where: opts.userId
+          ? { userId: opts.userId, couponCode: coupon.code }
+          : { guestEmail: opts.guestEmail!, couponCode: coupon.code },
       });
       if (used >= coupon.perUserLimit) throw badRequest('You have already used this coupon');
     }
