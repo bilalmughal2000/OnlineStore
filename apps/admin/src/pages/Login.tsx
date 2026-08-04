@@ -6,8 +6,11 @@ import { PasswordInput } from '@/components/PasswordInput';
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@store.pk');
-  const [password, setPassword] = useState('admin12345');
+  // Deliberately blank. These were prefilled with seed credentials, which is
+  // convenient locally but ships real sign-in details to whoever opens the
+  // deployed admin — and they go stale the moment the password is changed.
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -43,7 +46,6 @@ export function Login() {
             {busy ? 'Signing in…' : 'Sign In'}
           </button>
         </div>
-        <p className="mt-4 text-center text-xs text-stone-400">Demo: admin@store.pk / admin12345</p>
       </form>
     </div>
   );
