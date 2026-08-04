@@ -1,5 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "//": "Single-page-app fallback. React Router handles /orders, /products/:id etc. in the browser, but a hard load or refresh of those paths asks Vercel for a file that doesn't exist and returns 404. Every path must serve index.html and let the router take over. The repo's public/.htaccess does the same job on Apache/cPanel; Vercel ignores it.",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
