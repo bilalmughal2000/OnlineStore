@@ -1,406 +1,516 @@
-# Deploying to Vercel
+# Deploying to Vercel + Railway — Complete Beginner's Guide
 
-How to get the storefront, admin panel and API live using Vercel.
+Get the whole shop online:
 
-**Read [§1](#1-what-vercel-can-and-cant-host) first.** Vercel is excellent for two
-of the three parts and a poor fit for the third — knowing that up front saves you
-a wasted afternoon.
+- **Storefront + Admin panel** → **Vercel** (free)
+- **API + MySQL database** → **Railway** (~$5/month, card required)
+
+Every click and command, in order, with what you should see after each one.
+
+⏱ **About 45–60 minutes.**
 
 ---
 
 ## Contents
 
-- [1. What Vercel can and can't host](#1-what-vercel-cant-host)
-- [2. The order matters](#2-the-order-matters)
-- [3. Create the database](#3-create-the-database)
-- [4. Deploy the API](#4-deploy-the-api)
-- [5. Deploy the admin panel](#5-deploy-the-admin-panel)
-- [6. Deploy the storefront](#6-deploy-the-storefront)
-- [7. Connect them (CORS)](#7-connect-them-cors)
-- [8. Load the demo data](#8-load-the-demo-data)
-- [9. Test it](#9-test-it)
-- [10. Settings reference](#10-settings-reference)
-- [11. Troubleshooting](#11-troubleshooting)
-- [Appendix: putting the API on Vercel anyway](#appendix-putting-the-api-on-vercel-anyway)
+- [0. Why two platforms and not one](#0-why-two-platforms-and-not-one)
+- [1. What you need before starting](#1-what-you-need-before-starting)
+- [2. The order matters — read this](#2-the-order-matters--read-this)
+- [3. Generate your secret keys](#3-generate-your-secret-keys)
+- [4. Railway: create the database](#4-railway-create-the-database)
+- [5. Railway: deploy the API](#5-railway-deploy-the-api)
+- [6. Fill the database with tables and demo data](#6-fill-the-database-with-tables-and-demo-data)
+- [7. Vercel: deploy the admin panel](#7-vercel-deploy-the-admin-panel)
+- [8. Vercel: deploy the storefront](#8-vercel-deploy-the-storefront)
+- [9. Connect everything (CORS)](#9-connect-everything-cors)
+- [10. Test it all works](#10-test-it-all-works)
+- [11. Settings cheat-sheet](#11-settings-cheat-sheet)
+- [12. Troubleshooting](#12-troubleshooting)
+- [13. Moving to cPanel later](#13-moving-to-cpanel-later)
+- [14. Going live for real](#14-going-live-for-real)
 
 ---
 
-## 1. What Vercel can't host
+## 0. Why two platforms and not one
 
-| Part | Vercel? | Notes |
-|---|---|---|
-| **Storefront** (Next.js) | ✅ Perfect | Vercel builds Next.js — this is its home turf |
-| **Admin panel** (Vite SPA) | ✅ Perfect | Just static files |
-| **API** (Express + Prisma) | ⚠️ Possible, painful | See below |
-| **MySQL database** | ❌ Not offered | Vercel hosts no MySQL. You need one elsewhere regardless. |
+**Vercel cannot host your database or your API.**
 
-### Why the API is a poor fit
+- Vercel sells no MySQL. None. Your app uses MySQL, so the database must live elsewhere.
+- Vercel runs *serverless functions* — small programs that start on each request
+  and disappear. Your API is a normal always-running server, and three things
+  break under that model: database connections get exhausted, login rate limiting
+  stops counting correctly, and image uploads fail on a read-only filesystem.
 
-Vercel runs **serverless functions** — short-lived programs that start on each
-request and then vanish. This API assumes a normal, always-running server, and
-three things break:
+Vercel is superb at the other two parts — a Next.js storefront and a static admin
+panel are exactly what it's built for.
 
-1. **Database connections.** Every cold start opens a new pool. MySQL allows ~150
-   connections total; a traffic spike exhausts them and the site goes down. Fixing
-   this properly needs a connection pooler.
-2. **Rate limiting stops working.** Login and checkout limits are counted in
-   memory (`express-rate-limit` with its default store). Each serverless instance
-   has its own memory, so an attacker gets the limit multiplied by however many
-   instances are running. Your brute-force protection quietly weakens.
-3. **Image uploads break.** Uploads fall back to writing to local disk when
-   Cloudinary isn't configured. Vercel's filesystem is read-only and wiped
-   between requests, so **Cloudinary becomes mandatory**, not optional.
+So: **Railway runs the API and database. Vercel runs the two front-ends.**
 
-### The recommendation
-
-> **Storefront + admin on Vercel. API and MySQL on [Railway](https://railway.app)**
-> (or [Render](https://render.com)).
->
-> Railway runs a normal always-on Node process, gives you a MySQL database in the
-> same project, and none of the three problems above exist. Free/cheap tier is
-> plenty for testing.
-
-If you must put everything on Vercel, see the [appendix](#appendix-putting-the-api-on-vercel-anyway).
+> ⚠️ **Don't substitute Render for Railway.** Render offers PostgreSQL only — no
+> MySQL — so you'd still need a database elsewhere.
 
 ---
 
-## 2. The order matters
+## 1. What you need before starting
 
-**⚠️ The API's address is compiled into the storefront and admin at build time.**
-It is not read at runtime. Deploy in this order or you'll build them pointing at
-nothing and have to rebuild:
+- **A GitHub account** with this project pushed to it
+- **A Vercel account** — free, no card ([vercel.com](https://vercel.com), sign in with GitHub)
+- **A Railway account** — [railway.app](https://railway.app), sign in with GitHub.
+  **A card is required.** Railway ended its free tier in 2023: you get a small
+  one-time trial credit, then it's about **$5/month**.
+- **Node.js installed on your own computer** — needed once, in [§6](#6-fill-the-database-with-tables-and-demo-data),
+  to create the database tables. Check by opening Terminal/Command Prompt and typing:
+  ```bash
+  node --version
+  ```
+  If that prints a version number (v20 or higher), you're set. Otherwise install
+  from [nodejs.org](https://nodejs.org).
 
-```
-1. Database        →  get connection string
-2. API             →  get its URL     ← everything else needs this
-3. Admin panel     →  build with the API URL
-4. Storefront      →  build with the API URL
-5. Update the API's CORS with the two new URLs
-```
-
-If you've already created a Vercel project for the admin and don't have the API
-URL yet, that's fine — just don't deploy it successfully yet. Add the variable
-first ([§5](#5-deploy-the-admin-panel)), then redeploy.
-
----
-
-## 3. Create the database
-
-Railway gives you MySQL and the API host in one place.
-
-1. Go to [railway.app](https://railway.app) → sign in with GitHub
-2. **New Project** → **Provision MySQL**
-3. Click the MySQL service → **Variables** tab → copy **`MYSQL_URL`**
-
-It looks like:
+📝 **Keep a notepad open.** You'll collect five values as you go:
 
 ```
-mysql://root:PASSWORD@monorail.proxy.rlwy.net:12345/railway
-```
-
-📝 Save it — this is your `DATABASE_URL`.
-
-> **Other options:** [Aiven](https://aiven.io) (free MySQL), [TiDB Cloud](https://tidbcloud.com)
-> (free, MySQL-compatible), or [PlanetScale](https://planetscale.com) (paid).
-> Any MySQL 8 works.
-
----
-
-## 4. Deploy the API
-
-Still in the same Railway project:
-
-1. **New** → **GitHub Repo** → select `OnlineStore`
-2. Open the new service → **Settings**:
-
-   | Setting | Value |
-   |---|---|
-   | **Root Directory** | *(leave blank — the repo root)* |
-   | **Build Command** | `npm ci && npm run build:api` |
-   | **Start Command** | `node apps/api/dist/index.js` |
-
-3. **Variables** tab → add:
-
-   ```
-   NODE_ENV=production
-   DATABASE_URL=<the MySQL URL from §3>
-   DIRECT_DATABASE_URL=<the same URL>
-   JWT_ACCESS_SECRET=<long random string>
-   JWT_REFRESH_SECRET=<a different long random string>
-   REVALIDATE_SECRET=<another random string>
-   CORS_ORIGINS=http://localhost:3000
-   REDIS_URL=
-   SMTP_HOST=
-   ```
-
-   Generate the random strings with:
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-   ```
-
-4. **Settings → Networking → Generate Domain**
-
-You'll get something like `online-store-api.up.railway.app`.
-
-**Check it:** open `https://YOUR-API.up.railway.app/api/health` — you should see
-`{"status":"ok",...}`.
-
-📝 **Save this URL.** Your API base is that URL **plus `/api`**:
-
-```
-https://online-store-api.up.railway.app/api
+1. DATABASE_URL       (from §4)
+2. JWT_ACCESS_SECRET  (from §3)
+3. JWT_REFRESH_SECRET (from §3)
+4. REVALIDATE_SECRET  (from §3)
+5. API URL            (from §5)
 ```
 
 ---
 
-## 5. Deploy the admin panel
+## 2. The order matters — read this
 
-On Vercel → **Add New → Project** → import `OnlineStore`.
+**The API's address gets baked into the storefront and admin when they are built.**
+It is not looked up while the site runs. Build them before the API exists and
+they'll point at nothing.
+
+```
+Database  →  API  →  (now you have the API URL)  →  Admin  →  Storefront  →  CORS
+```
+
+If you already started a Vercel project and it failed — that's fine. You'll add
+the missing setting and click **Redeploy**.
+
+---
+
+## 3. Generate your secret keys
+
+These sign your login tokens. They must be long and random — never real words.
+
+Open Terminal (Mac) or Command Prompt (Windows) and run this **three times**:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+Each run prints a long line of letters and numbers. Save them as:
+
+```
+JWT_ACCESS_SECRET  = (first result)
+JWT_REFRESH_SECRET = (second result)
+REVALIDATE_SECRET  = (third result)
+```
+
+They must be **different from each other**. If `node` isn't installed yet, invent
+three random 60-character strings instead.
+
+---
+
+## 4. Railway: create the database
+
+1. Go to [railway.app](https://railway.app) → **Login with GitHub**
+2. Click **New Project**
+3. Choose **Deploy MySQL** (or *Provision MySQL* / *Add MySQL* — wording varies)
+4. Wait ~30 seconds for it to turn green
+5. Click the **MySQL** box → **Variables** tab
+6. Find **`MYSQL_PUBLIC_URL`** and copy it
+
+> ⚠️ **Copy `MYSQL_PUBLIC_URL`, not `MYSQL_URL`.** The public one works from your
+> own computer, which you need in [§6](#6-fill-the-database-with-tables-and-demo-data).
+> If you only see `MYSQL_URL`, look for a **Connect** / **Public Networking**
+> option to expose a public address.
+
+It looks like this:
+
+```
+mysql://root:aBcD1234@monorail.proxy.rlwy.net:34567/railway
+```
+
+📝 **Save it as `DATABASE_URL`.**
+
+---
+
+## 5. Railway: deploy the API
+
+Stay in the same Railway project.
+
+1. Click **+ New** (or **Create**) → **GitHub Repo**
+2. Authorise Railway to see your GitHub if it asks
+3. Pick your **OnlineStore** repository
+
+Railway will immediately try to build and **fail**. That's expected — it doesn't
+know how to build this project yet. Fix that now.
+
+### 5a. Tell Railway how to build it
+
+Click the new service → **Settings** tab:
+
+| Setting | Value |
+|---|---|
+| **Root Directory** | *leave empty* |
+| **Build Command** | `npm ci && npm run build:api` |
+| **Start Command** | `node apps/api/dist/index.js` |
+
+### 5b. Add the settings
+
+Go to the **Variables** tab → **New Variable** (or **Raw Editor** to paste them all
+at once):
+
+```
+NODE_ENV=production
+DATABASE_URL=<paste from §4>
+DIRECT_DATABASE_URL=<paste the same value again>
+JWT_ACCESS_SECRET=<from §3>
+JWT_REFRESH_SECRET=<from §3>
+REVALIDATE_SECRET=<from §3>
+CORS_ORIGINS=http://localhost:3000
+REDIS_URL=
+SMTP_HOST=
+```
+
+`CORS_ORIGINS` is a placeholder for now — you'll set the real value in
+[§9](#9-connect-everything-cors) once you know your Vercel addresses.
+
+Leave `REDIS_URL` and `SMTP_HOST` **empty**:
+- **Redis** — not needed; the app skips caching cleanly without it
+- **SMTP** — empty means order emails are written to the log instead of being
+  sent, so test orders can't email real people
+
+### 5c. Give it a web address
+
+**Settings** → scroll to **Networking** → **Generate Domain**
+
+You'll get something like `online-store-production.up.railway.app`.
+
+### 5d. Check it works
+
+Open this in your browser, replacing with your address:
+
+```
+https://YOUR-APP.up.railway.app/api/health
+```
+
+You should see:
+
+```json
+{"status":"ok","time":"2026-08-05T..."}
+```
+
+🎉 The API is live.
+
+📝 **Save your API base URL** — it's that address **plus `/api`**:
+
+```
+https://online-store-production.up.railway.app/api
+```
+
+You'll paste this into both Vercel projects.
+
+> **Not working?** Click **Deployments** → the latest one → **View Logs**. The real
+> error is there. See [§12](#12-troubleshooting).
+
+---
+
+## 6. Fill the database with tables and demo data
+
+The database exists but is completely empty — no tables. We create them from your
+own computer.
+
+Open Terminal in the project folder.
+
+**Mac / Linux:**
+
+```bash
+cd ~/Documents/Projects/OnlineStore
+
+export DATABASE_URL="mysql://root:PASSWORD@monorail.proxy.rlwy.net:34567/railway"
+export DIRECT_DATABASE_URL="$DATABASE_URL"
+export SEED_ADMIN_EMAIL="admin@yourdomain.com"
+export SEED_ADMIN_PASSWORD="ChooseAStrongPassword123"
+
+npm run migrate:deploy -w @store/database
+npm run db:seed
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd C:\path\to\OnlineStore
+
+$env:DATABASE_URL="mysql://root:PASSWORD@monorail.proxy.rlwy.net:34567/railway"
+$env:DIRECT_DATABASE_URL=$env:DATABASE_URL
+$env:SEED_ADMIN_EMAIL="admin@yourdomain.com"
+$env:SEED_ADMIN_PASSWORD="ChooseAStrongPassword123"
+
+npm run migrate:deploy -w @store/database
+npm run db:seed
+```
+
+Expected output:
+
+```
+All migrations have been successfully applied.
+
+🌱 Seeding database...
+✅ Seed complete.
+  Admin login: admin@yourdomain.com / ChooseAStrongPassword123
+  Products: 12
+```
+
+📝 **Write down that admin login** — it's how you'll sign in to the admin panel.
+
+> ⚠️ `db:seed` **erases and reloads** all catalogue data. Perfect on a fresh
+> database; never run it once you have real orders.
+
+**Verify:** reopen `https://YOUR-APP.up.railway.app/api/products?pageSize=2` —
+you should now see product data instead of an empty list.
+
+---
+
+## 7. Vercel: deploy the admin panel
+
+Go to [vercel.com](https://vercel.com) → **Add New** → **Project** → import your
+**OnlineStore** repository.
 
 | Setting | Value |
 |---|---|
 | **Project Name** | `online-store-admin` |
 | **Framework Preset** | **Vite** |
-| **Root Directory** | `apps/admin` |
-| **Build Command** | *leave default* |
-| **Output Directory** | *leave default* (`dist`) |
-| **Install Command** | *leave default* (`npm install --prefix=../..`) |
+| **Root Directory** | click **Edit** → choose `apps/admin` |
+| **Build Command** | leave as-is |
+| **Output Directory** | leave as-is (`dist`) |
+| **Install Command** | leave as-is (`npm install --prefix=../..`) |
 
-**The defaults are correct here.** The admin's `vite.config.ts` points
-`@store/shared-types` straight at the source files, so nothing needs pre-building.
+**The defaults are correct here** — the admin doesn't need any build command
+override.
 
-### ⚠️ The one thing you must add
+### ⚠️ Add this one variable before deploying
 
-Open **Environment Variables** and add:
+Expand **Environment Variables** and add:
 
 | Key | Value |
 |---|---|
-| `VITE_API_URL` | `https://YOUR-API.up.railway.app/api` |
+| `VITE_API_URL` | `https://YOUR-APP.up.railway.app/api` |
 
-**Without this the admin cannot talk to the API.** It's compiled into the
-JavaScript at build time — adding it later means clicking **Redeploy**, not just
-saving.
+**This is the step everyone misses.** Without it the admin panel loads but can
+never reach the API. It's compiled into the files at build time, so adding it
+afterwards requires a **Redeploy**, not just a save.
 
-Click **Deploy**. You'll get `online-store-admin.vercel.app`.
+Click **Deploy**, wait ~2 minutes.
+
+📝 **Save the address** it gives you, e.g. `online-store-admin.vercel.app`.
+
+Visiting it now shows a login page. It won't log in yet — CORS comes in
+[§9](#9-connect-everything-cors).
 
 ---
 
-## 6. Deploy the storefront
+## 8. Vercel: deploy the storefront
 
-Vercel → **Add New → Project** → import the same repo again.
+**Add New** → **Project** → import the **same repository again**. (Yes, the same
+repo — two projects from one repo is normal.)
 
 | Setting | Value |
 |---|---|
 | **Project Name** | `online-store` |
 | **Framework Preset** | **Next.js** |
-| **Root Directory** | `apps/storefront` |
-| **Build Command** | **`cd ../.. && npm run build:storefront`** ← override this |
-| **Output Directory** | *leave default* |
-| **Install Command** | *leave default* |
+| **Root Directory** | click **Edit** → choose `apps/storefront` |
+| **Build Command** | ⚠️ **override** → `cd ../.. && npm run build:storefront` |
+| **Output Directory** | leave as-is |
+| **Install Command** | leave as-is |
 
-### ⚠️ Why the build command must be overridden
+### ⚠️ Why the build command must be changed here
 
-Unlike the admin, the storefront imports `@store/shared-types` as a real package,
-so that package must be **compiled first**. The default build command doesn't do
-that and the deploy fails with:
+The storefront uses a shared code package that has to be compiled **before**
+Next.js builds. The default command skips that and the deploy fails with:
 
 ```
 Module not found: Can't resolve '@store/shared-types'
 ```
 
-`npm run build:storefront` compiles the shared package and then builds Next.js.
+(The admin didn't need this because it reads that package's source directly.)
 
 ### Environment variables
 
 | Key | Value |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | `https://YOUR-API.up.railway.app/api` |
-| `NEXT_PUBLIC_SITE_URL` | *leave empty while testing* — see below |
-| `STOREFRONT_URL` | `https://online-store.vercel.app` |
-| `REVALIDATE_SECRET` | *(the same value you set on the API)* |
+| `NEXT_PUBLIC_API_URL` | `https://YOUR-APP.up.railway.app/api` |
+| `STOREFRONT_URL` | `https://online-store.vercel.app` *(fill in after the first deploy)* |
+| `REVALIDATE_SECRET` | *(the same value you gave Railway in §5b)* |
+| `NEXT_PUBLIC_SITE_URL` | **leave empty** — see below |
 
-> **Leave `NEXT_PUBLIC_SITE_URL` empty until you're live.** While it's empty,
-> `robots.txt` returns `Disallow: /` and search engines skip the site. Set it and
-> Google will index your test deployment. Fill it in with the real domain when you
-> launch — and **redeploy**, since it's baked in at build time.
+> 🛑 **Leave `NEXT_PUBLIC_SITE_URL` empty while testing.**
+> While it's empty the site tells Google "do not index me". Fill it in and your
+> test shop can start appearing in search results, competing with your real
+> website. Set it only when you go live — and redeploy, since it's baked in.
 
 Click **Deploy**.
 
+📝 Save the address, e.g. `online-store.vercel.app`.
+
 ---
 
-## 7. Connect them (CORS)
+## 9. Connect everything (CORS)
 
-The API refuses browser requests from addresses it doesn't recognise. Go back to
-**Railway → API service → Variables** and set:
+Your API currently refuses requests from your two new Vercel addresses, because
+browsers block cross-site requests unless the server explicitly allows them.
+
+Go to **Railway → your API service → Variables** and update:
 
 ```
 CORS_ORIGINS=https://online-store.vercel.app,https://online-store-admin.vercel.app
-```
-
-Use your real Vercel URLs, `https://`, no trailing slash, comma-separated, no
-spaces. Also set:
-
-```
 STOREFRONT_URL=https://online-store.vercel.app
 ```
 
-Railway redeploys automatically.
+Rules that matter:
+- Include `https://`
+- **No** trailing slash
+- Separate with a comma, **no spaces**
+- Use your real addresses
 
-> **This is the #1 cause of "it works in curl but not the browser".** If products
-> load with `curl` but the site shows nothing, this variable is wrong.
+Railway redeploys automatically (~1 minute).
 
----
-
-## 8. Load the demo data
-
-The database is empty. From your own computer:
-
-```bash
-cd OnlineStore
-
-# point at the Railway database
-export DATABASE_URL="mysql://root:PASSWORD@monorail.proxy.rlwy.net:12345/railway"
-export DIRECT_DATABASE_URL="$DATABASE_URL"
-export SEED_ADMIN_EMAIL="admin@yourdomain.com"
-export SEED_ADMIN_PASSWORD="PickAStrongPassword123"
-
-npm run migrate:deploy -w @store/database   # create the tables
-npm run db:seed                             # demo products + your admin login
-```
-
-The seed prints the admin login it created — that's what you use on the admin
-panel.
-
-> ⚠️ `db:seed` **wipes and reloads** catalogue data. Fine now; never run it once
-> you have real orders.
+> **This is the number one cause of "the API works but my site shows nothing".**
+> If products appear via a direct URL but not on the shop, this variable is wrong.
 
 ---
 
-## 9. Test it
+## 10. Test it all works
 
-```bash
-curl https://YOUR-API.up.railway.app/api/health
-curl "https://YOUR-API.up.railway.app/api/products?pageSize=2"
-curl https://online-store.vercel.app/robots.txt     # must say "Disallow: /"
+In your browser:
+
+```
+https://YOUR-APP.up.railway.app/api/health          → {"status":"ok",...}
+https://YOUR-APP.up.railway.app/api/products        → product data
+https://online-store.vercel.app/robots.txt          → must say "Disallow: /"
 ```
 
-In a browser:
+Then click through:
 
 - [ ] Storefront shows products
-- [ ] Product → add to cart → correct total
-- [ ] Checkout without logging in (guest checkout — email only)
-- [ ] Order confirmation appears
-- [ ] Admin logs in with the seeded account
-- [ ] Admin → Orders shows the order with a **GUEST** badge
+- [ ] Click a product → pick a size → **Add to Cart**
+- [ ] Cart shows the right total
+- [ ] **Checkout without logging in** — asks only for an email
+- [ ] Order completes, confirmation page appears
+- [ ] Admin panel logs in with the account from [§6](#6-fill-the-database-with-tables-and-demo-data)
+- [ ] Admin → **Orders** → your order is there with a **GUEST** badge
+- [ ] Admin → **Customers & Users** → tick **Guest customers only** → buyer listed
+- [ ] Admin → **Products** → edit and save a product
+
+No order email arrives — correct, `SMTP_HOST` is empty on purpose.
 
 ---
 
-## 10. Settings reference
+## 11. Settings cheat-sheet
 
-**Admin** (Vercel)
-
+**Railway — API**
 ```
-Framework:       Vite
-Root Directory:  apps/admin
-Build Command:   (default)
-Output:          (default — dist)
-Install:         (default — npm install --prefix=../..)
-Env:             VITE_API_URL = https://YOUR-API.up.railway.app/api
-```
-
-**Storefront** (Vercel)
-
-```
-Framework:       Next.js
-Root Directory:  apps/storefront
-Build Command:   cd ../.. && npm run build:storefront     ← override
-Output:          (default)
-Install:         (default)
-Env:             NEXT_PUBLIC_API_URL = https://YOUR-API.up.railway.app/api
-                 NEXT_PUBLIC_SITE_URL = (empty while testing)
-                 STOREFRONT_URL = https://online-store.vercel.app
-                 REVALIDATE_SECRET = (same as the API)
-```
-
-**API** (Railway)
-
-```
-Build:           npm ci && npm run build:api
-Start:           node apps/api/dist/index.js
-Env:             NODE_ENV, DATABASE_URL, DIRECT_DATABASE_URL,
+Root Directory:  (empty)
+Build Command:   npm ci && npm run build:api
+Start Command:   node apps/api/dist/index.js
+Variables:       NODE_ENV, DATABASE_URL, DIRECT_DATABASE_URL,
                  JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, REVALIDATE_SECRET,
                  CORS_ORIGINS, STOREFRONT_URL
 ```
 
-### What needs a redeploy vs a restart
+**Vercel — Admin**
+```
+Framework:       Vite
+Root Directory:  apps/admin
+Build Command:   (default)
+Variables:       VITE_API_URL
+```
 
-Anything starting with `NEXT_PUBLIC_` or `VITE_` is **compiled into the files**.
-Changing it in the dashboard does nothing until you **Redeploy**. API variables
-take effect on restart, which Railway does automatically.
+**Vercel — Storefront**
+```
+Framework:       Next.js
+Root Directory:  apps/storefront
+Build Command:   cd ../.. && npm run build:storefront
+Variables:       NEXT_PUBLIC_API_URL, STOREFRONT_URL, REVALIDATE_SECRET,
+                 NEXT_PUBLIC_SITE_URL (empty while testing)
+```
+
+### Redeploy vs restart
+
+Anything beginning `NEXT_PUBLIC_` or `VITE_` is **compiled into the files**.
+Changing it in the dashboard does nothing until you click **Redeploy**.
+Railway variables apply on restart, which happens automatically.
 
 ---
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
-| What you see | Cause | Fix |
+| What you see | Why | Fix |
 |---|---|---|
-| `Module not found: Can't resolve '@store/shared-types'` | Storefront build command not overridden | Set it to `cd ../.. && npm run build:storefront` ([§6](#6-deploy-the-storefront)) |
-| Admin loads but nothing works; console shows CORS errors | `CORS_ORIGINS` missing the admin URL | [§7](#7-connect-them-cors) |
-| Storefront shows no products, `curl` on the API works | `NEXT_PUBLIC_API_URL` wrong or set after building | Fix it, then **Redeploy** |
-| Admin shows a blank page | `VITE_API_URL` never set | Add it, then **Redeploy** |
-| `Can't reach database server` | Wrong `DATABASE_URL`, or DB asleep on a free tier | Re-copy from Railway; check the DB service is running |
-| `Table 'Product' doesn't exist` | Migrations not run | `npm run migrate:deploy -w @store/database` ([§8](#8-load-the-demo-data)) |
-| `PrismaClientInitializationError` on Vercel | Prisma client not generated for the build platform | Already handled — `schema.prisma` includes the right engine targets |
-| Test site showing up in Google | `NEXT_PUBLIC_SITE_URL` was filled in | Empty it and redeploy |
-| Vercel build fails on install | Workspace not installed from the root | Install Command should be `npm install --prefix=../..` |
+| `Module not found: Can't resolve '@store/shared-types'` | Storefront build command not overridden | Set it to `cd ../.. && npm run build:storefront`, redeploy |
+| Admin page is blank | `VITE_API_URL` missing | Add it, then **Redeploy** ([§7](#7-vercel-deploy-the-admin-panel)) |
+| Console shows CORS errors | `CORS_ORIGINS` wrong | Exact `https://` addresses, no trailing slash ([§9](#9-connect-everything-cors)) |
+| Shop loads, no products | `NEXT_PUBLIC_API_URL` wrong, or set after building | Fix it, then **Redeploy** |
+| `Table 'Product' doesn't exist` | Migrations never ran | [§6](#6-fill-the-database-with-tables-and-demo-data) |
+| `Can't reach database server` from your computer | Used `MYSQL_URL` instead of `MYSQL_PUBLIC_URL` | Copy the public one ([§4](#4-railway-create-the-database)) |
+| Railway build fails | Build command wrong | `npm ci && npm run build:api` ([§5a](#5a-tell-railway-how-to-build-it)) |
+| Railway deploys, then crashes | Missing variables — usually `DATABASE_URL` | Check **Deployments → View Logs** |
+| Product images disappear after a redeploy | No Cloudinary; Railway's disk is wiped on deploy | See the note below |
+| Test shop appearing in Google | `NEXT_PUBLIC_SITE_URL` got filled in | Empty it, redeploy |
+
+**Where the logs are:**
+- Railway → your service → **Deployments** → **View Logs**
+- Vercel → your project → **Deployments** → click one → **Build Logs** / **Runtime Logs**
+
+> ### 💡 Set up Cloudinary early
+> Uploaded product images are saved to the server's disk when Cloudinary isn't
+> configured — and **Railway wipes that disk on every redeploy**, so your images
+> vanish. [Cloudinary](https://cloudinary.com) has a free tier. Add
+> `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` to
+> Railway's variables and images live on a CDN instead — and follow you if you
+> ever change hosts.
 
 ---
 
-## Appendix: putting the API on Vercel anyway
+## 13. Moving to cPanel later
 
-If you really want everything on Vercel, understand what you're taking on
-([§1](#1-what-vercel-cant-host)): weakened rate limiting, mandatory Cloudinary, and
-database connections that need a pooler.
+If you move the API and database to cPanel later, **no code changes are needed.**
+The app already supports both:
 
-**1. Add a serverless entry point** — `apps/api/api/index.ts`:
+- The API reads whatever port the host gives it (Railway and cPanel both set `PORT`)
+- The same `dist/index.js` is the entry point on both
+- The database driver is already built for both platforms
+- A Passenger startup file for cPanel (`apps/storefront/server.js`) is already in the repo
 
-```ts
-// Vercel serverless entry. The VPS/Railway build uses src/index.ts, which calls
-// listen(); serverless instead exports the app and lets the platform invoke it.
-import { createApp } from '../src/app';
+What you'd actually do:
 
-export default createApp();
-```
+1. **Copy the data across:**
+   ```bash
+   mysqldump --no-tablespaces -h <railway-host> -P <port> -u root -p railway > backup.sql
+   ```
+   then import it in cPanel → **phpMyAdmin**
+2. **Update the API's settings** — `DATABASE_URL`, `CORS_ORIGINS`, `STOREFRONT_URL`
+3. **⚠️ Redeploy both Vercel projects** after changing `NEXT_PUBLIC_API_URL` and
+   `VITE_API_URL` — they're compiled in, so the old address sticks until you rebuild
 
-**2. Add `apps/api/vercel.json`:**
+Full instructions: [docs/CPANEL_TEST_DEPLOY.md](CPANEL_TEST_DEPLOY.md)
 
-```json
-{
-  "version": 2,
-  "builds": [{ "src": "api/index.ts", "use": "@vercel/node" }],
-  "routes": [{ "src": "/(.*)", "dest": "api/index.ts" }]
-}
-```
+---
 
-**3. Solve connection pooling** — otherwise you will hit
-`Too many connections` under load. Either:
+## 14. Going live for real
 
-- **[Prisma Accelerate](https://www.prisma.io/accelerate)** — set `DATABASE_URL`
-  to the Accelerate URL, keep `DIRECT_DATABASE_URL` pointing at the real database
-  for migrations; or
-- a MySQL host with a built-in pooler.
-
-Also add `?connection_limit=1` to the runtime URL so each instance opens only one
-connection.
-
-**4. Configure Cloudinary** — set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`
-and `CLOUDINARY_API_SECRET`. Without them, admin image uploads try to write to a
-read-only filesystem and fail.
-
-**5. Accept the rate-limit weakness**, or move the limiter to a Redis-backed store
-([Upstash](https://upstash.com) has a free tier) so counts are shared across
-instances.
-
-> I have not verified this path end to end — unlike the Railway route above, which
-> follows the app's existing production setup. If you go this way, test login
-> rate limiting and image upload specifically.
+1. **Add your own domain** — Vercel → project → **Settings → Domains**
+2. **Set `NEXT_PUBLIC_SITE_URL`** to that domain and **redeploy** — this is what
+   allows Google to index the shop
+3. **Update `CORS_ORIGINS`** on Railway to the real domains
+4. **Set up SMTP** so customers actually receive order emails
+5. **Add Cloudinary** so images survive redeploys
+6. **Add Meta/Google tracking** — see [docs/META_ADS.md](META_ADS.md)
+7. **Change the admin password** from the seeded one
+8. **Never run `db:seed` again** — it erases catalogue data
+9. **Set up backups** — Railway → MySQL service → **Backups**
