@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { Prisma, prisma, ProductStatus } from '@store/database';
-import { productQuerySchema, type Paginated } from '@store/shared-types';
+import { productQuerySchema, reviewInputSchema, type Paginated } from '@store/shared-types';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
+import { optionalAuth } from '../../middleware/auth';
+import { reviewLimiter } from '../../middleware/rateLimit';
 import { serialize } from '../../lib/serialize';
 import { cached } from '../../lib/cache';
-import { notFound } from '../../lib/errors';
+import { badRequest, notFound } from '../../lib/errors';
 
 export const productsRouter = Router();
 
@@ -43,6 +45,12 @@ productsRouter.get(
           { brand: { contains: q.search } },
         ],
       });
+    }
+    if (q.ids) {
+      // Resolve an explicit set of ids (guest wishlist). Bounded so the query
+      // can't be used to dump the whole catalogue in one request.
+      const ids = q.ids.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 60);
+      and.push({ id: { in: ids.length ? ids : ['__none__'] } });
     }
     if (q.brand) and.push({ brand: { equals: q.brand } });
     if (q.onSale) and.push({ salePrice: { not: null } });
@@ -145,6 +153,76 @@ productsRouter.get(
       take: 50,
     });
     res.json({ reviews: serialize(reviews), ratingAvg: product.ratingAvg, ratingCount: product.ratingCount });
+  }),
+);
+
+// POST /products/:slug/reviews — leave a review.
+//
+// Open to everyone: no account and no prior purchase required. Signed-in users
+// get one editable review per product (upsert); anonymous reviewers supply a
+// display name and each submission is a separate row.
+//
+// Rate-limited per IP, which is the only brake on an endpoint this open.
+productsRouter.post(
+  '/:slug/reviews',
+  reviewLimiter,
+  optionalAuth,
+  validate(reviewInputSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as import('@store/shared-types').ReviewInput;
+    const userId = req.auth?.userId ?? null;
+
+    if (!userId && !body.guestName) {
+      throw badRequest('Please enter your name to post a review');
+    }
+
+    const product = await prisma.product.findFirst({
+      where: { slug: req.params.slug, status: ProductStatus.PUBLISHED },
+      select: { id: true },
+    });
+    if (!product) throw notFound('Product not found');
+
+    const data = {
+      rating: body.rating,
+      comment: body.comment,
+      images: body.images,
+      isApproved: true,
+    };
+
+    const review = userId
+      ? // One review per account per product, editable on re-submit.
+        await prisma.review.upsert({
+          where: { productId_userId: { productId: product.id, userId } },
+          update: data,
+          create: { ...data, productId: product.id, userId },
+          include: { user: { select: { name: true } } },
+        })
+      : await prisma.review.create({
+          data: { ...data, productId: product.id, guestName: body.guestName },
+        });
+
+    // Recompute the product's rating from approved reviews.
+    const agg = await prisma.review.aggregate({
+      where: { productId: product.id, isApproved: true },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { ratingAvg: agg._avg.rating ?? 0, ratingCount: agg._count._all },
+    });
+
+    // "Verified" is derived, not stored — true when this reviewer has actually
+    // received the product. Guests are matched on the email they checked out with.
+    const verified = userId
+      ? Boolean(
+          await prisma.orderItem.findFirst({
+            where: { order: { userId, status: 'DELIVERED' }, variant: { productId: product.id } },
+          }),
+        )
+      : false;
+
+    res.status(201).json({ review: serialize({ ...review, verified }) });
   }),
 );
 

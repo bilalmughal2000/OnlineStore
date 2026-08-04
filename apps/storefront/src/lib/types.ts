@@ -98,6 +98,8 @@ export interface Review {
   createdAt: string;
   verified?: boolean;
   user?: { name: string } | null;
+  /** Display name when the review was left without an account. */
+  guestName?: string | null;
 }
 
 export interface Testimonial {

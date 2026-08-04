@@ -38,12 +38,15 @@ export function PhoneField({
   onChange,
   error,
   id = 'phone',
+  optional = false,
 }: {
   /** The 10 national digits, without +92 or a leading 0. */
   value: string;
   onChange: (national: string) => void;
   error?: string;
   id?: string;
+  /** Labels the field "(optional)" — e.g. on sign-up, where phone isn't required. */
+  optional?: boolean;
 }) {
   const filled = value.length;
   const complete = filled === PK_NATIONAL_LENGTH;
@@ -55,7 +58,7 @@ export function PhoneField({
   return (
     <div data-field="newAddress.phone">
       <label className="label" htmlFor={id}>
-        Phone
+        Phone{optional && <span className="font-normal text-ink/45"> (optional)</span>}
       </label>
 
       <div
@@ -100,7 +103,9 @@ export function PhoneField({
             ? 'Mobile numbers start with 3 — enter it without the leading 0.'
             : complete && !isValidPKMobile(value)
               ? 'That doesn’t look like a Pakistani mobile number.'
-              : `Enter your ${PK_NATIONAL_LENGTH}-digit mobile number, e.g. 0300 1234567 → 3001234567`}
+              : optional && filled === 0
+                ? `${PK_NATIONAL_LENGTH}-digit mobile number, e.g. 0300 1234567. Leave blank to skip.`
+                : `Enter your ${PK_NATIONAL_LENGTH}-digit mobile number, e.g. 0300 1234567 → 3001234567`}
       </p>
     </div>
   );

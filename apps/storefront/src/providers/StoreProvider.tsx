@@ -8,6 +8,7 @@ import {
   trackRemoveFromCart,
   type AnalyticsItem,
 } from '@/lib/analytics';
+import { clearGuestWishlist, readGuestWishlist, toggleGuestWishlist } from '@/lib/guest-wishlist';
 import type { AuthUser, Cart, CartLine } from '@/lib/types';
 
 interface StoreState {
@@ -88,7 +89,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           await loadWishlist();
         } catch {
           tokenStore.clear();
+          // Token was stale — fall back to whatever this browser saved as a guest.
+          setWishlist(new Set(readGuestWishlist()));
         }
+      } else {
+        setWishlist(new Set(readGuestWishlist()));
       }
       await refreshCart();
       setLoading(false);
@@ -104,6 +109,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         await clientApi.post('/cart/merge', { guestSessionId: tokenStore.guestId() });
       } catch {
         /* no guest cart to merge */
+      }
+      // Carry anything hearted while browsing as a guest into the account, then
+      // drop the local copy so the two can't drift apart.
+      const guestSaved = readGuestWishlist();
+      if (guestSaved.length) {
+        await Promise.allSettled(
+          guestSaved.map((productId) => clientApi.post('/account/wishlist', { productId })),
+        );
+        clearGuestWishlist();
       }
       await refreshCart();
       await loadWishlist();
@@ -196,11 +210,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const toggleWishlist = useCallback(
     async (productId: string, meta?: { name: string; price: number }) => {
+      const adding = !wishlist.has(productId);
+
+      // Guests keep their wishlist in the browser. Blocking them behind a login
+      // wall loses the save — and the intent behind it — for no benefit; the
+      // list is merged into their account if they ever sign up.
       if (!user) {
-        showToast('Please log in to save items');
+        setWishlist(new Set(toggleGuestWishlist(productId)));
+        if (adding && meta) trackAddToWishlist({ id: productId, name: meta.name, price: meta.price });
+        showToast(adding ? 'Saved to wishlist' : 'Removed from wishlist');
         return;
       }
-      const adding = !wishlist.has(productId);
+
       // Optimistic update for instant heart feedback.
       setWishlist((prev) => {
         const next = new Set(prev);

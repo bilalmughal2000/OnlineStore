@@ -404,7 +404,11 @@ model Coupon {
 model Review {
   id         String   @id @default(cuid())
   productId  String
-  userId     String
+  // Null when the reviewer wasn't signed in. Anyone may review — see
+  // guestName for who to display.
+  userId     String?
+  // Display name for a review left without an account.
+  guestName  String?
   rating     Int
   comment    String?
   images     Json?    // array of image URLs (Json for MySQL compatibility)
@@ -413,8 +417,10 @@ model Review {
   createdAt  DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Still one review per account per product (editable). MySQL permits repeated
+  // NULLs in a unique index, so anonymous reviews are not limited by this.
   @@unique([productId, userId])
   @@index([productId])
 }

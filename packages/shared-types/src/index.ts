@@ -1,14 +1,21 @@
 import { z } from 'zod';
 
 // ─────────────────────────── Auth ───────────────────────────
+// Messages are written for the shopper — they render directly on the sign-up
+// form, so Zod's defaults ("String must contain at least 2 character(s)") would
+// leak developer language into the UI.
 export const registerSchema = z.object({
-  name: z.string().min(2).max(80),
-  email: z.string().email(),
+  name: z.string().trim().min(2, 'Enter your full name').max(80, 'Name is too long'),
+  email: z.string().trim().max(191).email('Enter a valid email address'),
   phone: z
     .string()
-    .regex(/^(\+92|0)?3\d{9}$/, 'Enter a valid Pakistani mobile number')
+    .trim()
+    .regex(/^(\+92|0)?3\d{9}$/, 'Enter a valid Pakistani mobile number, e.g. 0300 1234567')
     .optional(),
-  password: z.string().min(8).max(72),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password is too long'),
 });
 
 export const loginSchema = z.object({
@@ -202,15 +209,22 @@ export const sectionInputSchema = z.object({
 
 // ─────────────────────────── Review ─────────────────────────
 export const reviewInputSchema = z.object({
-  rating: z.number().int().min(1).max(5),
-  comment: z.string().max(1000).optional(),
+  rating: z.number().int().min(1, 'Choose a rating').max(5),
+  comment: z.string().trim().max(1000, 'Review is too long (1000 characters max)').optional(),
   images: z.array(z.string().url()).max(5).default([]),
+  // Reviews may be left without an account. The route requires this when there
+  // is no signed-in user, so the review has a name to display.
+  guestName: z.string().trim().min(2, 'Enter your name').max(60, 'Name is too long').optional(),
 });
 
 // ─────────────────────────── Product query ──────────────────
 export const productQuerySchema = z.object({
   category: z.string().optional(),
   search: z.string().optional(),
+  // Comma-separated product ids. Lets the storefront resolve a list of ids it
+  // already holds — a guest's wishlist lives in their browser, so there is no
+  // server-side row to join against.
+  ids: z.string().max(2000).optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
   size: z.string().optional(),

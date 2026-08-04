@@ -48,6 +48,7 @@ export function ProductReviews({
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState('');
+  const [guestName, setGuestName] = useState('');
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -65,16 +66,20 @@ export function ProductReviews({
     e.preventDefault();
     setBusy(true);
     try {
-      const { review } = await clientApi.post<{ review: Review }>(`/account/products/${productId}/reviews`, {
+      // Public endpoint — no account required. A signed-in user's review is
+      // upserted; a guest supplies the name to display alongside it.
+      const { review } = await clientApi.post<{ review: Review }>(`/products/${slug}/reviews`, {
         rating,
         comment: comment.trim() || undefined,
         images: [],
+        ...(user ? {} : { guestName: guestName.trim() }),
       });
       // Optimistically show it (replace any existing review by the same user).
       setReviews((prev) => [
-        { ...review, user: { name: user?.name ?? 'You' } },
+        { ...review, user: user ? { name: user.name } : null, guestName: user ? null : guestName.trim() },
         ...prev.filter((r) => r.id !== review.id),
       ]);
+      setGuestName('');
       setComment('');
       setOpen(false);
       showToast('Thanks for your review!');
@@ -111,20 +116,15 @@ export function ProductReviews({
               </div>
             ))}
           </div>
-          {user ? (
-            <button onClick={() => setOpen((o) => !o)} className="btn-primary mt-5 w-full">
-              {open ? 'Cancel' : 'Write a Review'}
-            </button>
-          ) : (
-            <Link href="/login" className="btn-outline mt-5 w-full">
-              Log in to review
-            </Link>
-          )}
+          {/* Open to everyone — no account required. */}
+          <button onClick={() => setOpen((o) => !o)} className="btn-primary mt-5 w-full">
+            {open ? 'Cancel' : 'Write a Review'}
+          </button>
         </div>
 
         {/* List + form */}
         <div>
-          {open && user && (
+          {open && (
             <form onSubmit={submit} className="mb-6 rounded-lg border border-accent/30 bg-accent/5 p-5">
               <p className="label">Your rating</p>
               <div className="mb-3 flex gap-1">
@@ -145,6 +145,22 @@ export function ProductReviews({
                   </button>
                 ))}
               </div>
+              {/* Guests must say who they are; signed-in users already have a name. */}
+              {!user && (
+                <div className="mb-3">
+                  <label className="label" htmlFor="review-name">Your name</label>
+                  <input
+                    id="review-name"
+                    className="input"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="e.g. Ayesha K."
+                    required
+                    minLength={2}
+                    maxLength={60}
+                  />
+                </div>
+              )}
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
@@ -164,11 +180,11 @@ export function ProductReviews({
               {reviews.map((r) => (
                 <div key={r.id} className="flex gap-4 border-b border-black/5 pb-5 last:border-0">
                   <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
-                    {initials(r.user?.name ?? 'A')}
+                    {initials(r.user?.name ?? r.guestName ?? 'A')}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{r.user?.name ?? 'Anonymous'}</p>
+                      <p className="font-medium">{r.user?.name ?? r.guestName ?? 'Anonymous'}</p>
                       {r.verified && (
                         <span className="inline-flex items-center gap-0.5 text-xs text-green-700">
                           <BadgeCheck size={13} /> Verified Buyer

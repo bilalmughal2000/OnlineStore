@@ -1,36 +1,65 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi } from '@/lib/client-api';
 import { formatPKR, effectivePrice } from '@/lib/format';
+import { readGuestWishlist } from '@/lib/guest-wishlist';
 
 export default function WishlistPage() {
-  const { user, loading } = useStore();
+  const { user, loading, toggleWishlist } = useStore();
   const [items, setItems] = useState<any[]>([]);
   const [ready, setReady] = useState(false);
 
-  const load = () => clientApi.get<{ items: any[] }>('/account/wishlist').then((d) => { setItems(d.items); setReady(true); });
-
-  useEffect(() => {
-    if (user) load();
+  // Two sources depending on who's asking: the account's saved rows, or — for a
+  // guest — the ids held in this browser, resolved against the catalogue.
+  const load = useCallback(async () => {
+    if (user) {
+      const d = await clientApi.get<{ items: any[] }>('/account/wishlist');
+      setItems(d.items);
+    } else {
+      const ids = readGuestWishlist();
+      if (ids.length === 0) {
+        setItems([]);
+      } else {
+        const d = await clientApi.get<{ items: any[] }>(
+          `/products?ids=${encodeURIComponent(ids.join(','))}&pageSize=60`,
+        );
+        // Shape it like the account response so one renderer serves both.
+        setItems(d.items.map((product) => ({ id: product.id, productId: product.id, product })));
+      }
+    }
+    setReady(true);
   }, [user]);
 
-  if (loading) return <div className="container-x py-20 text-center">Loading…</div>;
-  if (!user) return <div className="container-x py-20 text-center">Please <Link href="/login" className="text-accent">log in</Link>.</div>;
-  if (!ready) return <div className="container-x py-20 text-center">Loading…</div>;
+  useEffect(() => {
+    if (!loading) load();
+  }, [loading, load]);
+
+  if (loading || !ready) return <div className="container-x py-20 text-center">Loading…</div>;
 
   const remove = async (productId: string) => {
-    await clientApi.del(`/account/wishlist/${productId}`);
+    // Routes to localStorage or the API depending on sign-in state.
+    await toggleWishlist(productId);
     load();
   };
 
   return (
     <div className="container-x py-8">
-      <h1 className="mb-6 font-serif text-3xl font-bold">Wishlist</h1>
+      <h1 className="mb-2 font-serif text-3xl font-bold">Wishlist</h1>
+      {/* Saved locally for guests — say so, so nobody assumes it follows them. */}
+      {!user && (
+        <p className="mb-6 text-sm text-ink/60">
+          Saved on this device.{' '}
+          <Link href="/login" className="font-medium text-accent hover:underline">
+            Log in
+          </Link>{' '}
+          to keep your wishlist across devices.
+        </p>
+      )}
       {items.length === 0 ? (
         <p className="py-16 text-center text-ink/60">No saved items yet.</p>
       ) : (

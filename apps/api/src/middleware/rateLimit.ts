@@ -32,3 +32,13 @@ export const globalLimiter = rateLimit({
   skip: (req) =>
     req.method === 'GET' && CACHED_PUBLIC_PREFIXES.some((p) => req.path.startsWith(p)),
 });
+
+// Reviews are open to anyone (no account, no purchase), so a per-IP cap is the
+// only thing standing between the ratings and a spam script.
+export const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many reviews. Please try again later.' } },
+});
