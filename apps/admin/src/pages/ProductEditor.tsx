@@ -27,6 +27,10 @@ const blank = {
   seoDescription: '',
   fabricCare: '',
   shippingReturns: '',
+  // Meta catalogue / Google Shopping feed attributes.
+  gender: '',
+  ageGroup: '',
+  googleProductCategory: '',
 };
 
 export function ProductEditor() {
@@ -85,6 +89,9 @@ export function ProductEditor() {
           seoDescription: product.seoDescription ?? '',
           fabricCare: product.fabricCare ?? '',
           shippingReturns: product.shippingReturns ?? '',
+          gender: product.gender ?? '',
+          ageGroup: product.ageGroup ?? '',
+          googleProductCategory: product.googleProductCategory ?? '',
         });
         setImages(product.images.map((i: any) => i.url));
         setSizeChartImage(product.sizeChartImage ?? '');
@@ -116,6 +123,10 @@ export function ProductEditor() {
       categoryId: form.categoryId || null,
       fabricCare: form.fabricCare || null,
       shippingReturns: form.shippingReturns || null,
+      // Empty select => not set. Send null rather than '' so Zod's enum passes.
+      gender: form.gender || null,
+      ageGroup: form.ageGroup || null,
+      googleProductCategory: form.googleProductCategory || null,
       sizeChartImage: sizeChartImage || null,
       // Only send a table if it has at least one header and one data row.
       sizeChartTable:
@@ -342,6 +353,51 @@ export function ProductEditor() {
             <h2 className="font-semibold">SEO</h2>
             <div><label className="label">Meta Title</label><input className="input" value={form.seoTitle} onChange={set('seoTitle')} /></div>
             <div><label className="label">Meta Description</label><textarea className="input h-20" value={form.seoDescription} onChange={set('seoDescription')} /></div>
+          </div>
+          <div className="card space-y-4 p-5">
+            <h2 className="font-semibold">Shopping Feed</h2>
+            <p className="-mt-2 text-xs text-ink/60">
+              Used by the Meta / Instagram product catalogue. Clothing items without
+              Gender and Age Group are often rejected or shown less.
+            </p>
+            <div><label className="label">Gender</label>
+              <Select
+                value={form.gender}
+                onChange={(v) => setForm((f) => ({ ...f, gender: v }))}
+                options={[
+                  { value: '', label: 'Not set' },
+                  { value: 'FEMALE', label: 'Female' },
+                  { value: 'MALE', label: 'Male' },
+                  { value: 'UNISEX', label: 'Unisex' },
+                ]}
+              />
+            </div>
+            <div><label className="label">Age Group</label>
+              <Select
+                value={form.ageGroup}
+                onChange={(v) => setForm((f) => ({ ...f, ageGroup: v }))}
+                options={[
+                  { value: '', label: 'Not set' },
+                  { value: 'ADULT', label: 'Adult' },
+                  { value: 'KIDS', label: 'Kids' },
+                  { value: 'TODDLER', label: 'Toddler' },
+                  { value: 'INFANT', label: 'Infant' },
+                  { value: 'NEWBORN', label: 'Newborn' },
+                ]}
+              />
+            </div>
+            <div>
+              <label className="label">Google Product Category</label>
+              <input
+                className="input"
+                value={form.googleProductCategory}
+                onChange={set('googleProductCategory')}
+                placeholder="e.g. 1604 or Apparel & Accessories > Clothing"
+              />
+              <p className="mt-1 text-xs text-ink/50">
+                Taxonomy id or full path. Meta uses Google&apos;s taxonomy.
+              </p>
+            </div>
           </div>
           <button disabled={busy} className="btn-primary w-full">{busy ? 'Saving…' : 'Save Product'}</button>
         </div>

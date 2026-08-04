@@ -5,11 +5,38 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PageBack } from '@/components/PageBack';
 import { api } from '@/lib/api';
+import { Analytics } from '@/components/Analytics';
+import { SITE_URL } from '@/lib/site';
 import { THEMES, DEFAULT_THEME, type ThemePalette } from '@store/shared-types';
 
+const TITLE = 'Aabroo — Modern Pakistani Fashion';
+const DESCRIPTION =
+  'Shop modern Pakistani clothing online. Cash on Delivery, JazzCash, EasyPaisa & Stripe.';
+
 export const metadata: Metadata = {
-  title: { default: 'Aabroo — Modern Pakistani Fashion', template: '%s · Aabroo' },
-  description: 'Shop modern Pakistani clothing online. Cash on Delivery, JazzCash, EasyPaisa & Stripe.',
+  // metadataBase makes every relative canonical/OG URL resolve to the real
+  // domain. Without it Next emits relative OG images, which social crawlers
+  // and Google Merchant reject.
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITLE, template: '%s · Aabroo' },
+  description: DESCRIPTION,
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: 'Aabroo',
+    title: TITLE,
+    description: DESCRIPTION,
+    locale: 'en_PK',
+    url: '/',
+  },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
+  robots: { index: true, follow: true },
+  // Meta requires a verified domain before you can configure Aggregated Event
+  // Measurement (which is what keeps Purchase reporting working for iOS
+  // traffic). Renders <meta name="facebook-domain-verify"> only when set.
+  ...(process.env.NEXT_PUBLIC_META_DOMAIN_VERIFICATION
+    ? { other: { 'facebook-domain-verify': process.env.NEXT_PUBLIC_META_DOMAIN_VERIFICATION } }
+    : {}),
   // Inline SVG favicon (emoji) — avoids a favicon.ico 404 console error.
   icons: {
     icon: [
@@ -50,6 +77,36 @@ function themeVars(key: string, custom?: ThemePalette): React.CSSProperties {
   } as React.CSSProperties;
 }
 
+// Organization + WebSite structured data. The SearchAction enables Google's
+// sitelinks search box, and Organization is what populates a brand knowledge panel.
+function siteJsonLd(storeName: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': `${SITE_URL}/#organization`,
+        name: storeName,
+        url: SITE_URL,
+        areaServed: 'PK',
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
+        url: SITE_URL,
+        name: storeName,
+        publisher: { '@id': `${SITE_URL}/#organization` },
+        inLanguage: 'en-PK',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/search?q={search_term_string}` },
+          'query-input': 'required name=search_term_string',
+        },
+      },
+    ],
+  };
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { header, footer, storeName, promoText, themeKey, customTheme } = await getShell();
   return (
@@ -58,6 +115,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Warm up the connection to the image CDN (LCP hero image lives here). */}
         <link rel="preconnect" href="https://picsum.photos" crossOrigin="" />
         <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd(storeName)) }}
+        />
       </head>
       <body className="flex h-dvh flex-col overflow-hidden">
         <StoreProvider>
@@ -69,6 +130,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
           <Footer links={footer} storeName={storeName} />
         </StoreProvider>
+        <Analytics />
       </body>
     </html>
   );

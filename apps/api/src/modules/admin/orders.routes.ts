@@ -20,6 +20,25 @@ const orderInclude = {
   user: { select: { id: true, name: true, email: true, phone: true } },
 } satisfies Prisma.OrderInclude;
 
+/**
+ * Who to notify about an order. Guest orders have no `user`, so contact details
+ * come from the email captured at checkout plus the shipping address. Without
+ * this, guests would silently receive no status updates at all.
+ */
+function recipientFor(order: {
+  guestEmail: string | null;
+  user: { name: string; email: string; phone: string | null } | null;
+  address: { fullName: string; phone: string } | null;
+}) {
+  if (order.user) return order.user;
+  if (!order.guestEmail) return null;
+  return {
+    name: order.address?.fullName ?? 'Customer',
+    email: order.guestEmail,
+    phone: order.address?.phone ?? null,
+  };
+}
+
 // GET /admin/orders — filterable list
 adminOrdersRouter.get(
   '/',
@@ -33,13 +52,23 @@ adminOrdersRouter.get(
       where.OR = [
         { orderNumber: { contains: String(req.query.search) } },
         { user: { email: { contains: String(req.query.search) } } },
+        // Guest orders have no user row — match the email they checked out with,
+        // plus the name/phone on the shipping address, so support can find them.
+        { guestEmail: { contains: String(req.query.search) } },
+        { address: { fullName: { contains: String(req.query.search) } } },
+        { address: { phone: { contains: String(req.query.search) } } },
       ];
     }
     const [total, items] = await Promise.all([
       prisma.order.count({ where }),
       prisma.order.findMany({
         where,
-        include: { user: { select: { name: true, email: true } }, items: true },
+        include: {
+          user: { select: { name: true, email: true } },
+          // Falls back to the address for guest name/phone in the list view.
+          address: { select: { fullName: true, phone: true } },
+          items: true,
+        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -76,7 +105,9 @@ adminOrdersRouter.patch(
     });
     await logActivity(req.auth!.userId, 'update-status', 'Order', order.id, { status });
     // Notify the customer of the status change (email + WhatsApp), best-effort.
-    if (order.user) notifyOrderStatus(order, order.user);
+    // Works for guests too — see recipientFor().
+    const recipient = recipientFor(order);
+    if (recipient) notifyOrderStatus(order, recipient);
     res.json({ order: serialize(order) });
   }),
 );

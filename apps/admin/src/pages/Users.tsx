@@ -23,10 +23,30 @@ interface UserRow {
   _count?: { orders: number };
 }
 
+/**
+ * A customer who bought without registering. Not a User row — it's synthesised
+ * by grouping orders on the email captured at checkout, so there is no id, no
+ * role and nothing to edit or block.
+ */
+interface GuestRow {
+  email: string;
+  name: string;
+  phone: string | null;
+  city: string | null;
+  ordersCount: number;
+  cancelledCount: number;
+  lifetimeValue: number;
+  firstOrderAt: string;
+  lastOrderAt: string;
+  hasAccount: boolean;
+}
+
 const emptyForm = { name: '', email: '', phone: '', role: 'CUSTOMER', password: '', isBlocked: false };
 
 export function Users() {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [guests, setGuests] = useState<GuestRow[]>([]);
+  const [guestsOnly, setGuestsOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [buyersOnly, setBuyersOnly] = useState(false);
@@ -38,6 +58,11 @@ export function Users() {
   const load = () => {
     const q = new URLSearchParams({ pageSize: '100' });
     if (search) q.set('search', search);
+    if (guestsOnly) {
+      // Guests come from a different source — orders grouped by email, not users.
+      api.get<{ items: GuestRow[] }>(`/admin/users/guests?${q}`).then((d) => setGuests(d.items));
+      return;
+    }
     if (roleFilter) q.set('role', roleFilter);
     if (buyersOnly) q.set('hasOrders', 'true');
     api.get<{ items: UserRow[] }>(`/admin/users?${q}`).then((d) => setUsers(d.items));
@@ -46,7 +71,7 @@ export function Users() {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, roleFilter, buyersOnly]);
+  }, [search, roleFilter, buyersOnly, guestsOnly]);
 
   const openCreate = () => {
     setForm(emptyForm);
@@ -104,30 +129,114 @@ export function Users() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-serif text-2xl font-bold">Customers &amp; Users</h1>
-        <button onClick={openCreate} className="btn-primary">
-          <Plus size={16} /> Add User
-        </button>
+        {/* Guests have no account, so there is nothing to create or edit here. */}
+        {!guestsOnly && (
+          <button onClick={openCreate} className="btn-primary">
+            <Plus size={16} /> Add User
+          </button>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-3">
-        <input className="input max-w-xs" placeholder="Search name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <Select
-          className="w-44"
-          value={roleFilter}
-          onChange={setRoleFilter}
-          options={[
-            { value: '', label: 'All roles' },
-            { value: 'CUSTOMER', label: 'Customers' },
-            { value: 'STAFF', label: 'Staff' },
-            { value: 'ADMIN', label: 'Admins' },
-          ]}
+        <input
+          className="input max-w-xs"
+          placeholder={guestsOnly ? 'Search name, email or phone…' : 'Search name or email…'}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
-        <label className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm">
-          <input type="checkbox" checked={buyersOnly} onChange={(e) => setBuyersOnly(e.target.checked)} />
-          Bought something
+        {/* Role and "bought something" apply to accounts only — every guest by
+            definition bought something and has no role. */}
+        {!guestsOnly && (
+          <>
+            <Select
+              className="w-44"
+              value={roleFilter}
+              onChange={setRoleFilter}
+              options={[
+                { value: '', label: 'All roles' },
+                { value: 'CUSTOMER', label: 'Customers' },
+                { value: 'STAFF', label: 'Staff' },
+                { value: 'ADMIN', label: 'Admins' },
+              ]}
+            />
+            <label className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm">
+              <input type="checkbox" checked={buyersOnly} onChange={(e) => setBuyersOnly(e.target.checked)} />
+              Bought something
+            </label>
+          </>
+        )}
+        <label
+          className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+            guestsOnly ? 'border-brand bg-brand/5 text-brand' : 'border-stone-300 bg-white'
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={guestsOnly}
+            onChange={(e) => setGuestsOnly(e.target.checked)}
+          />
+          Guest customers only
         </label>
       </div>
 
+      {guestsOnly && (
+        <p className="mb-3 text-sm text-stone-500">
+          Customers who ordered without creating an account, grouped by the email they
+          checked out with. {guests.length} found.
+        </p>
+      )}
+
+      {guestsOnly ? (
+        <div className="card overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-stone-200 bg-stone-50">
+              <tr>
+                <th className="th">Name</th>
+                <th className="th">Email</th>
+                <th className="th">Phone</th>
+                <th className="th">City</th>
+                <th className="th">Orders</th>
+                <th className="th text-right">Lifetime Value</th>
+                <th className="th">First Order</th>
+                <th className="th">Last Order</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {guests.map((g) => (
+                <tr key={g.email} className="hover:bg-stone-50">
+                  <td className="td font-medium">
+                    {g.name}
+                    {/* They registered later with the same email — the same
+                        person also appears in the accounts list. */}
+                    {g.hasAccount && (
+                      <span className="ml-2 badge bg-indigo-100 text-indigo-700">Has account</span>
+                    )}
+                  </td>
+                  <td className="td text-stone-600">{g.email}</td>
+                  <td className="td text-stone-600">{g.phone ?? '—'}</td>
+                  <td className="td text-stone-600">{g.city ?? '—'}</td>
+                  <td className="td">
+                    {g.ordersCount}
+                    {g.cancelledCount > 0 && (
+                      <span className="ml-1 text-xs text-red-600">({g.cancelledCount} cancelled)</span>
+                    )}
+                  </td>
+                  <td className="td text-right font-medium">{formatPKR(g.lifetimeValue)}</td>
+                  <td className="td text-xs text-stone-500">{formatDate(g.firstOrderAt)}</td>
+                  <td className="td text-xs text-stone-500">{formatDate(g.lastOrderAt)}</td>
+                </tr>
+              ))}
+              {guests.length === 0 && (
+                <tr>
+                  <td className="td text-stone-500" colSpan={8}>
+                    No guest customers yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead className="border-b border-stone-200 bg-stone-50">
@@ -166,6 +275,7 @@ export function Users() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Create / Edit modal */}
       {modal.open && (

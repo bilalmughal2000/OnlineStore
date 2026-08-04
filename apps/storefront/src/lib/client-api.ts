@@ -27,11 +27,26 @@ export const tokenStore = {
   },
 };
 
+/** One field-level problem reported by the API's Zod validation. */
+export interface ApiFieldIssue {
+  /** Dotted path into the request body, e.g. "newAddress.phone". */
+  path: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /**
+   * Per-field problems. The API always sends these for a validation failure,
+   * alongside the generic "Validation failed" message — dropping them is why a
+   * form can only say "something is wrong" instead of naming the field.
+   */
+  details: ApiFieldIssue[];
+
+  constructor(status: number, message: string, details: ApiFieldIssue[] = []) {
     super(message);
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -58,7 +73,11 @@ async function request<T>(
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiError(res.status, data?.error?.message ?? 'Request failed');
+    throw new ApiError(
+      res.status,
+      data?.error?.message ?? 'Request failed',
+      Array.isArray(data?.error?.details) ? data.error.details : [],
+    );
   }
   return data as T;
 }

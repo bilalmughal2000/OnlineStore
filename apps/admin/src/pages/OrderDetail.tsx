@@ -83,10 +83,19 @@ export function OrderDetail() {
 
         <div className="space-y-6">
           <div className="card p-5">
-            <h2 className="mb-3 font-semibold">Customer</h2>
-            <p className="text-sm font-medium">{order.user?.name}</p>
-            <p className="text-sm text-stone-500">{order.user?.email}</p>
-            <p className="text-sm text-stone-500">{order.user?.phone}</p>
+            <h2 className="mb-3 flex items-center gap-2 font-semibold">
+              Customer
+              {/* No user row means this was a guest checkout — worth flagging,
+                  since there's no account history to look up. */}
+              {!order.user && (
+                <span className="rounded bg-stone-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-stone-600">
+                  Guest
+                </span>
+              )}
+            </h2>
+            <p className="text-sm font-medium">{order.user?.name ?? order.address?.fullName ?? '—'}</p>
+            <p className="text-sm text-stone-500">{order.user?.email ?? order.guestEmail ?? '—'}</p>
+            <p className="text-sm text-stone-500">{order.user?.phone ?? order.address?.phone ?? ''}</p>
             {order.address && (
               <div className="mt-3 rounded bg-stone-50 p-3 text-sm text-stone-600">
                 {order.address.fullName}<br />

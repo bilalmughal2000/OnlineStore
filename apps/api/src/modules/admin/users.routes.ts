@@ -78,6 +78,115 @@ adminUsersRouter.get(
   }),
 );
 
+/**
+ * GET /admin/users/guests — customers who bought without creating an account.
+ *
+ * They have no User row, so there is nothing to list from the users table.
+ * Their identity is the email captured at checkout, and everything else — name,
+ * phone, city — comes from the shipping address on their most recent order.
+ * Orders are therefore grouped by `guestEmail` to synthesise a customer record.
+ *
+ * MUST stay above `/:id`, or that route matches "guests" and returns 404.
+ */
+adminUsersRouter.get(
+  '/guests',
+  asyncHandler(async (req, res) => {
+    const page = Number(req.query.page ?? 1);
+    const pageSize = Math.min(Number(req.query.pageSize ?? 20), 200);
+
+    const where: Prisma.OrderWhereInput = { userId: null, guestEmail: { not: null } };
+    if (req.query.search) {
+      const s = String(req.query.search);
+      where.OR = [
+        { guestEmail: { contains: s } },
+        { address: { fullName: { contains: s } } },
+        { address: { phone: { contains: s } } },
+        { orderNumber: { contains: s } },
+      ];
+    }
+
+    // One row per guest email, ordered by most recent activity.
+    const [groups, distinct] = await Promise.all([
+      prisma.order.groupBy({
+        by: ['guestEmail'],
+        where,
+        _count: { _all: true },
+        _sum: { total: true },
+        _min: { createdAt: true },
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: 'desc' } },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      // Total distinct guests, for pagination.
+      prisma.order.findMany({ where, select: { guestEmail: true }, distinct: ['guestEmail'] }),
+    ]);
+
+    const emails = groups.map((g) => g.guestEmail!).filter(Boolean);
+
+    // Latest order per guest supplies the display name / phone / city, plus a
+    // cancelled-order count so lifetime value can be read honestly.
+    const [recentOrders, cancelled, existingAccounts] = await Promise.all([
+      prisma.order.findMany({
+        where: { userId: null, guestEmail: { in: emails } },
+        select: {
+          guestEmail: true,
+          createdAt: true,
+          address: { select: { fullName: true, phone: true, city: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.order.groupBy({
+        by: ['guestEmail'],
+        where: { userId: null, guestEmail: { in: emails }, status: 'CANCELLED' },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+      // A guest may have registered later. Flagging it stops staff treating one
+      // person as two separate customers.
+      prisma.user.findMany({ where: { email: { in: emails } }, select: { id: true, email: true } }),
+    ]);
+
+    const latestByEmail = new Map<string, (typeof recentOrders)[number]>();
+    for (const o of recentOrders) {
+      if (o.guestEmail && !latestByEmail.has(o.guestEmail)) latestByEmail.set(o.guestEmail, o);
+    }
+    const cancelledByEmail = new Map(cancelled.map((c) => [c.guestEmail!, c]));
+    const accountByEmail = new Map(existingAccounts.map((u) => [u.email, u.id]));
+
+    const items = groups.map((g) => {
+      const email = g.guestEmail!;
+      const latest = latestByEmail.get(email);
+      const cancelledRow = cancelledByEmail.get(email);
+      const cancelledValue = toNum(cancelledRow?._sum.total ?? 0);
+      return {
+        email,
+        name: latest?.address?.fullName ?? '—',
+        phone: latest?.address?.phone ?? null,
+        city: latest?.address?.city ?? null,
+        ordersCount: g._count._all,
+        cancelledCount: cancelledRow?._count._all ?? 0,
+        // Excludes cancelled orders — otherwise a guest who cancelled everything
+        // would look like your best customer.
+        lifetimeValue: toNum(g._sum.total ?? 0) - cancelledValue,
+        firstOrderAt: g._min.createdAt,
+        lastOrderAt: g._max.createdAt,
+        hasAccount: accountByEmail.has(email),
+        accountId: accountByEmail.get(email) ?? null,
+      };
+    });
+
+    const total = distinct.length;
+    res.json({
+      items: serialize(items),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize) || 1,
+    });
+  }),
+);
+
 adminUsersRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {

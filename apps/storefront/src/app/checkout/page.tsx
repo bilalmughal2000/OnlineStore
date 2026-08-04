@@ -1,12 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PROVINCES } from '@store/shared-types';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi, ApiError } from '@/lib/client-api';
 import { formatPKR } from '@/lib/format';
+import { checkoutAttribution, trackBeginCheckout } from '@/lib/analytics';
+import { fieldErrors, readableError } from '@/lib/api-errors';
 import { Select } from '@/components/ui/Select';
+import { PhoneField, isValidPKMobile, normalisePKPhone, toE164PK } from '@/components/ui/PhoneField';
+
+// Maps the API's field paths to the labels actually printed on this form, so an
+// error reads "Phone: …" rather than "newAddress.phone: …".
+const FIELD_LABELS: Record<string, string> = {
+  guestEmail: 'Email',
+  'newAddress.fullName': 'Full Name',
+  'newAddress.phone': 'Phone',
+  'newAddress.addressLine': 'Address',
+  'newAddress.city': 'City',
+  'newAddress.province': 'Province',
+  'newAddress.postalCode': 'Postal Code',
+  paymentMethod: 'Payment Method',
+};
 
 const PK_CITIES = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala', 'Hyderabad', 'Other'];
 
@@ -28,37 +45,111 @@ export default function CheckoutPage() {
     province: PROVINCES[0] as string,
     postalCode: '',
   });
+  // Guest checkout: no account needed, but we must be able to reach the buyer,
+  // so an email is required when there's no logged-in user.
+  const [guestEmail, setGuestEmail] = useState('');
   const [payment, setPayment] = useState('COD');
   const [delivery, setDelivery] = useState<'standard' | 'express'>('standard');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrs, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/login?redirect=/checkout');
-  }, [loading, user, router]);
-
-  useEffect(() => {
-    if (user) setForm((f) => ({ ...f, fullName: f.fullName || user.name, phone: f.phone || user.phone || '' }));
+    if (user)
+      setForm((f) => ({
+        ...f,
+        fullName: f.fullName || user.name,
+        // A saved number may be in any format (03…, +92…) — normalise to the
+        // national digits the field works in.
+        phone: f.phone || normalisePKPhone(user.phone ?? ''),
+      }));
   }, [user]);
 
-  if (loading || !user) return <div className="container-x py-20 text-center">Loading…</div>;
+  // InitiateCheckout / begin_checkout — once per visit to this page. Guarded by a
+  // ref because `cart` re-renders on every coupon/qty change, and each re-fire
+  // would inflate Meta's funnel and skew cost-per-checkout.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || !cart || cart.lines.length === 0) return;
+    checkoutTracked.current = true;
+    trackBeginCheckout(
+      cart.lines.map((l) => ({
+        id: l.productId,
+        name: l.productTitle,
+        price: l.unitPrice,
+        quantity: l.quantity,
+        variant: l.variantLabel,
+      })),
+      cart.total,
+      cart.couponCode,
+    );
+  }, [cart]);
+
+  // NOTE: hooks must stay above these early returns.
+  // No login gate: guests check out too.
+  if (loading) return <div className="container-x py-20 text-center">Loading…</div>;
   if (!cart || cart.lines.length === 0)
     return <div className="container-x py-20 text-center">Your cart is empty.</div>;
 
   const placeOrder = async () => {
     setError(null);
+    setFieldErrors({});
+    // Validate here so the buyer gets an inline message instead of a 400 after
+    // the round trip. The API enforces the same rule regardless.
+    if (!user && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guestEmail.trim())) {
+      setFieldErrors({ guestEmail: 'Enter a valid email address.' });
+      setError('Please enter a valid email address so we can send your order confirmation.');
+      return;
+    }
+    if (!isValidPKMobile(form.phone)) {
+      const detail =
+        form.phone.length === 0
+          ? 'Enter your mobile number — the courier needs it to deliver.'
+          : `Enter all ${10} digits of your mobile number (you have ${form.phone.length}).`;
+      setFieldErrors({ 'newAddress.phone': detail });
+      setError(`Phone: ${detail}`);
+      document
+        .querySelector('[data-field="newAddress.phone"]')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setBusy(true);
     try {
-      const res = await clientApi.post<{ order: { id: string } }>('/orders/checkout', {
-        paymentMethod: payment,
-        deliveryMethod: delivery,
-        notes: notes || undefined,
-        newAddress: { label: 'Home', ...form },
-      });
-      router.push(`/order-confirmation/${res.order.id}`);
+      const res = await clientApi.post<{ order: { id: string }; guestToken?: string }>(
+        '/orders/checkout',
+        {
+          paymentMethod: payment,
+          deliveryMethod: delivery,
+          notes: notes || undefined,
+          // Phone is held as national digits in the form; the API wants E.164.
+          newAddress: { label: 'Home', ...form, phone: toE164PK(form.phone) },
+          ...(user ? {} : { guestEmail: guestEmail.trim() }),
+          // Lets the API attribute this sale to the ad click server-side.
+          attribution: checkoutAttribution(),
+        },
+      );
+      // A guest has no session, so the order is reopened with the token issued
+      // at checkout. It also goes in the confirmation email.
+      router.push(
+        res.guestToken
+          ? `/order-confirmation/${res.order.id}?token=${res.guestToken}`
+          : `/order-confirmation/${res.order.id}`,
+      );
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not place order');
+      // Surface WHICH field failed. The API sends per-field issues; showing only
+      // the generic "Validation failed" leaves the buyer hunting through the
+      // whole form, which is how a ready-to-pay order gets abandoned.
+      const perField = fieldErrors(e);
+      setFieldErrors(perField);
+      setError(readableError(e, FIELD_LABELS, 'Could not place order. Please try again.'));
+      // Scroll the first bad field into view — on mobile it's often off-screen.
+      const firstBad = Object.keys(perField)[0];
+      if (firstBad) {
+        document
+          .querySelector(`[data-field="${firstBad}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       setBusy(false);
     }
   };
@@ -71,14 +162,77 @@ export default function CheckoutPage() {
       <h1 className="mb-6 font-serif text-3xl font-bold">Checkout</h1>
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="space-y-8 lg:col-span-2">
+          {/* Contact — guests only. Signing in is offered, never required:
+              forcing an account here is a well-known way to lose the sale. */}
+          {!user && (
+            <section className="card p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-semibold">Contact</h2>
+                <p className="text-sm text-ink/60">
+                  Have an account?{' '}
+                  <Link href="/login?redirect=/checkout" className="font-medium text-accent hover:underline">
+                    Log in
+                  </Link>
+                </p>
+              </div>
+              <div data-field="guestEmail">
+                <Field label="Email">
+                  <input
+                    className={`input ${fieldErrs.guestEmail ? 'border-sale' : ''}`}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    aria-invalid={Boolean(fieldErrs.guestEmail)}
+                  />
+                </Field>
+                {fieldErrs.guestEmail && (
+                  <p className="mt-1 text-xs text-sale">{fieldErrs.guestEmail}</p>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-ink/55">
+                We&apos;ll email your order confirmation and tracking link here. No account needed.
+              </p>
+            </section>
+          )}
+
           {/* Shipping */}
           <section className="card p-5">
             <h2 className="mb-4 text-lg font-semibold">Shipping Address</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Full Name"><input className="input" value={form.fullName} onChange={set('fullName')} /></Field>
-              <Field label="Phone"><input className="input" value={form.phone} onChange={set('phone')} placeholder="03XXXXXXXXX" /></Field>
-              <div className="sm:col-span-2">
-                <Field label="Address"><input className="input" value={form.addressLine} onChange={set('addressLine')} placeholder="House #, Street, Area" /></Field>
+              <div data-field="newAddress.fullName">
+                <Field label="Full Name">
+                  <input
+                    className={`input ${fieldErrs['newAddress.fullName'] ? 'border-sale' : ''}`}
+                    value={form.fullName}
+                    onChange={set('fullName')}
+                    autoComplete="name"
+                  />
+                </Field>
+                {fieldErrs['newAddress.fullName'] && (
+                  <p className="mt-1 text-xs text-sale">{fieldErrs['newAddress.fullName']}</p>
+                )}
+              </div>
+              <PhoneField
+                value={form.phone}
+                onChange={(national) => setForm((f) => ({ ...f, phone: national }))}
+                error={fieldErrs['newAddress.phone']}
+              />
+              <div className="sm:col-span-2" data-field="newAddress.addressLine">
+                <Field label="Address">
+                  <input
+                    className={`input ${fieldErrs['newAddress.addressLine'] ? 'border-sale' : ''}`}
+                    value={form.addressLine}
+                    onChange={set('addressLine')}
+                    placeholder="House #, Street, Area"
+                    autoComplete="street-address"
+                  />
+                </Field>
+                {fieldErrs['newAddress.addressLine'] && (
+                  <p className="mt-1 text-xs text-sale">{fieldErrs['newAddress.addressLine']}</p>
+                )}
               </div>
               <Field label="City">
                 <Select
@@ -162,7 +316,26 @@ export default function CheckoutPage() {
             <div className="flex justify-between border-t border-black/10 pt-2 text-base font-bold"><span>Total</span><span>{formatPKR(cart.total)}</span></div>
           </div>
 
-          {error && <p className="mt-4 rounded bg-sale/10 p-2 text-sm text-sale">{error}</p>}
+          {error && (
+            <div className="mt-4 rounded bg-sale/10 p-3 text-sm text-sale" role="alert">
+              {/* List each bad field by name. A bare "Validation failed" next to
+                  a full form tells the buyer nothing about what to change. */}
+              {Object.keys(fieldErrs).length > 0 ? (
+                <>
+                  <p className="font-medium">Please check these fields:</p>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5">
+                    {Object.entries(fieldErrs).map(([path, msg]) => (
+                      <li key={path}>
+                        <span className="font-medium">{FIELD_LABELS[path] ?? path}</span> — {msg}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                error
+              )}
+            </div>
+          )}
 
           <button onClick={placeOrder} disabled={busy} className="btn-primary mt-5 w-full">
             {busy ? 'Placing Order…' : 'Place Order'}

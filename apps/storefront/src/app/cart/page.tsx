@@ -2,16 +2,35 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useStore } from '@/providers/StoreProvider';
 import { formatPKR } from '@/lib/format';
 import { ApiError } from '@/lib/client-api';
+import { trackViewCart } from '@/lib/analytics';
 
 export default function CartPage() {
   const { cart, updateQty, removeItem, applyCoupon, removeCoupon } = useStore();
   const [coupon, setCoupon] = useState('');
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
+
+  // view_cart once per visit. Ref-guarded because every qty/coupon change
+  // replaces `cart`, and re-firing would distort the funnel.
+  const viewTracked = useRef(false);
+  useEffect(() => {
+    if (viewTracked.current || !cart || cart.lines.length === 0) return;
+    viewTracked.current = true;
+    trackViewCart(
+      cart.lines.map((l) => ({
+        id: l.productId,
+        name: l.productTitle,
+        price: l.unitPrice,
+        quantity: l.quantity,
+        variant: l.variantLabel,
+      })),
+      cart.total,
+    );
+  }, [cart]);
 
   const view = cart;
 
