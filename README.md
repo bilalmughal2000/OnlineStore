@@ -116,6 +116,13 @@ Notifications never block or fail order placement (errors are logged only).
 | `npm run db:studio` -w @store/database | Prisma Studio |
 | `npm run build` | Build all packages + apps for production |
 
+## Testing on cPanel subdomains
+
+To try the whole stack (storefront + admin + API) on cPanel subdomains without
+touching a site already running on the main domain:
+
+**→ See [docs/CPANEL_TEST_DEPLOY.md](docs/CPANEL_TEST_DEPLOY.md)**
+
 ## Production / VPS deployment
 
 Designed to run on a Hostinger/GoDaddy **VPS** (not shared hosting). See `deploy/` for a PM2 ecosystem file and an Nginx reverse-proxy sample. Outline:
