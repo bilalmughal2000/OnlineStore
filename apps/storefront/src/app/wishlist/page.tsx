@@ -3,16 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Trash2 } from 'lucide-react';
+import { ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '@/providers/StoreProvider';
-import { clientApi } from '@/lib/client-api';
+import { clientApi, ApiError } from '@/lib/client-api';
 import { formatPKR, effectivePrice } from '@/lib/format';
 import { readGuestWishlist } from '@/lib/guest-wishlist';
 
 export default function WishlistPage() {
-  const { user, loading, toggleWishlist } = useStore();
+  const { user, loading, toggleWishlist, addToCart, showToast } = useStore();
   const [items, setItems] = useState<any[]>([]);
   const [ready, setReady] = useState(false);
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   // Two sources depending on who's asking: the account's saved rows, or — for a
   // guest — the ids held in this browser, resolved against the catalogue.
@@ -47,6 +48,21 @@ export default function WishlistPage() {
     load();
   };
 
+  const quickAdd = async (product: any) => {
+    const available = (product.variants ?? []).find((v: any) => v.stock > 0);
+    if (!available) return;
+    setAddingId(product.id);
+    try {
+      // Leaves the item in the wishlist — saving and buying are separate
+      // intentions, and silently removing it would surprise people.
+      await addToCart(available.id, 1);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Could not add to cart');
+    } finally {
+      setAddingId(null);
+    }
+  };
+
   return (
     <div className="container-x py-8">
       <h1 className="mb-2 font-serif text-3xl font-bold">Wishlist</h1>
@@ -72,7 +88,23 @@ export default function WishlistPage() {
               <div className="p-3">
                 <p className="line-clamp-1 text-sm font-medium">{w.product.title}</p>
                 <p className="text-sm font-semibold">{formatPKR(effectivePrice(w.product))}</p>
-                <button onClick={() => remove(w.productId)} className="btn-ghost mt-2 w-full text-xs text-sale">
+                {(() => {
+                  // Quick-add takes the first variant with stock, matching the
+                  // product card's behaviour. Anything needing a specific
+                  // size/colour is a click away on the product page.
+                  const available = (w.product.variants ?? []).find((v: any) => v.stock > 0);
+                  return (
+                    <button
+                      onClick={() => quickAdd(w.product)}
+                      disabled={!available || addingId === w.productId}
+                      className="btn-primary mt-2 w-full justify-center text-xs"
+                    >
+                      <ShoppingBag size={14} />
+                      {!available ? 'Sold Out' : addingId === w.productId ? 'Adding…' : 'Add to Cart'}
+                    </button>
+                  );
+                })()}
+                <button onClick={() => remove(w.productId)} className="btn-ghost mt-1 w-full text-xs text-sale">
                   <Trash2 size={14} /> Remove
                 </button>
               </div>

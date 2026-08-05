@@ -66,7 +66,14 @@ accountRouter.get(
     const items = await prisma.wishlistItem.findMany({
       where: { userId: req.auth!.userId },
       include: {
-        product: { include: { images: { where: { isPrimary: true }, take: 1 } } },
+        product: {
+          include: {
+            images: { where: { isPrimary: true }, take: 1 },
+            // Needed so the wishlist can add straight to the cart — the cart
+            // takes a variant id, not a product id.
+            variants: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
