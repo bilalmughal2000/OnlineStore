@@ -18,7 +18,7 @@ export default function AccountPage() {
 
   const tiles = [
     { href: '/account/orders', icon: Package, title: 'My Orders', desc: 'Track & view order history' },
-    { href: '/account/wishlist', icon: Heart, title: 'Wishlist', desc: 'Saved items' },
+    { href: '/wishlist', icon: Heart, title: 'Wishlist', desc: 'Saved items' },
     { href: '/account/addresses', icon: MapPin, title: 'Addresses', desc: 'Manage delivery addresses' },
     { href: '/account/profile', icon: User, title: 'Profile', desc: 'Name, phone & password' },
   ];

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Menu, Search, ShoppingBag, User, X } from 'lucide-react';
+import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi } from '@/lib/client-api';
 
@@ -14,7 +14,7 @@ interface MenuLink {
 }
 
 export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; storeName: string; promoText?: string }) {
-  const { cartCount, user } = useStore();
+  const { cartCount, user, wishlist } = useStore();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -65,6 +65,16 @@ export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; store
               />
             </div>
           </form>
+          {/* Always visible: the wishlist works without an account, so it needs
+              a way in that isn't behind the account area. */}
+          <Link href="/wishlist" aria-label="Wishlist" className="relative hover:text-accent">
+            <Heart />
+            {wishlist.size > 0 && (
+              <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-white">
+                {wishlist.size}
+              </span>
+            )}
+          </Link>
           <Link href={user ? '/account' : '/login'} aria-label="Account" className="hover:text-accent">
             <User />
           </Link>
