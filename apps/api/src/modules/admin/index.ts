@@ -9,6 +9,7 @@ import { adminOrdersRouter } from './orders.routes';
 import { adminMarketingRouter } from './marketing.routes';
 import { adminUploadsRouter } from './uploads.routes';
 import { adminUsersRouter } from './users.routes';
+import { adminEmailRouter } from './email.routes';
 
 export const adminRouter = Router();
 
@@ -78,6 +79,7 @@ adminRouter.post('/diagnostics/test-email', async (req, res) => {
   res.status(result.ok ? 200 : 500).json(result);
 });
 
+adminRouter.use('/email', adminEmailRouter);
 adminRouter.use('/dashboard', adminDashboardRouter);
 adminRouter.use('/uploads', adminUploadsRouter);
 adminRouter.use('/users', adminUsersRouter);

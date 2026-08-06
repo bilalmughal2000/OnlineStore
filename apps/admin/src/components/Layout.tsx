@@ -10,6 +10,7 @@ import {
   Star,
   FileText,
   Settings,
+  Mail,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
@@ -24,6 +25,7 @@ const NAV = [
   { to: '/users', label: 'Customers & Users', icon: Users },
   { to: '/reviews', label: 'Reviews', icon: Star },
   { to: '/pages', label: 'Pages', icon: FileText },
+  { to: '/emails', label: 'Emails', icon: Mail },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 

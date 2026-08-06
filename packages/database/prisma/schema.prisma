@@ -495,6 +495,20 @@ model Setting {
   value Json
 }
 
+// Admin-editable copy for a transactional email. One row per email the store
+// sends, keyed by EmailTemplateKey (ORDER_PLACED, PASSWORD_RESET, …).
+//
+// A missing row — or isEnabled = false — means the built-in default is used, so
+// a bad edit can always be undone by disabling it. Only the body is stored; the
+// branded shell, colours and footer are applied at send time.
+model EmailTemplate {
+  key       String   @id
+  subject   String   @db.Text
+  html      String   @db.Text
+  isEnabled Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
 model AdminActivityLog {
   id        String   @id @default(cuid())
   adminId   String

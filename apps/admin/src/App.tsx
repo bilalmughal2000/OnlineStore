@@ -14,6 +14,7 @@ import { Users } from '@/pages/Users';
 import { Reviews } from '@/pages/Reviews';
 import { Pages } from '@/pages/Pages';
 import { Settings } from '@/pages/Settings';
+import { Emails } from '@/pages/Emails';
 
 export function App() {
   const { user, loading } = useAuth();
@@ -46,6 +47,7 @@ export function App() {
         <Route path="reviews" element={<Reviews />} />
         <Route path="pages" element={<Pages />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="emails" element={<Emails />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

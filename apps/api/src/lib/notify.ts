@@ -1,5 +1,6 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { toNum } from './money';
+import { getEmailBranding, renderEmail, renderItemsTable, renderOrdersList } from './email/render';
 
 /**
  * Notification layer for order events.
@@ -221,30 +222,40 @@ export function notifyOrderPlaced(
   opts: { guestToken?: string | null } = {},
 ): void {
   const total = fmtPKR(toNum(order.total as never));
-  const itemsHtml = (order.items ?? [])
-    .map((i) => `<li>${i.productTitle} × ${i.quantity} — ${fmtPKR(toNum(i.price as never) * i.quantity)}</li>`)
-    .join('');
   const storefrontUrl = (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const orderUrl = opts.guestToken
     ? `${storefrontUrl}/order-confirmation/${order.id}?token=${opts.guestToken}`
     : `${storefrontUrl}/account/orders`;
-  const linkLabel = opts.guestToken ? 'View your order' : 'View your orders';
-  const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:560px">
-      <h2>Thank you for your order, ${to.name.split(' ')[0]}!</h2>
-      <p>Your order <strong>${order.orderNumber}</strong> has been placed.</p>
-      <ul>${itemsHtml}</ul>
-      <p><strong>Total: ${total}</strong> — Payment: ${order.paymentMethod}</p>
-      <p><a href="${orderUrl}">${linkLabel}</a></p>
-      ${opts.guestToken ? '<p style="color:#666;font-size:13px">Keep this email — the link above is how you check your order status.</p>' : ''}
-      <p>We'll notify you as your order progresses. Thank you for shopping with Aabroo.</p>
-    </div>`;
 
-  // Fire-and-forget across channels.
-  void Promise.allSettled([
-    sendEmail(to.email, `Order ${order.orderNumber} confirmed`, html),
-    sendWhatsApp(to.phone, [to.name.split(' ')[0], order.orderNumber, total]),
-  ]);
+  void (async () => {
+    try {
+      const { subject, html } = await renderEmail(
+        'ORDER_PLACED',
+        {
+          firstName: to.name.split(' ')[0],
+          customerName: to.name,
+          orderNumber: order.orderNumber,
+          orderTotal: total,
+          paymentMethod: order.paymentMethod,
+          orderUrl,
+          itemsTable: renderItemsTable(
+            (order.items ?? []).map((i) => ({
+              productTitle: i.productTitle,
+              variantLabel: (i as { variantLabel?: string | null }).variantLabel ?? null,
+              quantity: i.quantity,
+              lineTotal: fmtPKR(toNum(i.price as never) * i.quantity),
+            })),
+          ),
+        },
+        { cta: { label: opts.guestToken ? 'View your order' : 'View your orders', url: orderUrl } },
+      );
+      await sendEmail(to.email, subject, html);
+    } catch (err) {
+      console.error('[email] render failed for ORDER_PLACED:', (err as Error).message);
+    }
+  })();
+
+  void sendWhatsApp(to.phone, [to.name.split(' ')[0], order.orderNumber, total]);
 }
 
 /**
@@ -260,66 +271,111 @@ export function notifyOrderLinks(
   orders: { id: string; orderNumber: string; guestToken: string | null; createdAt: Date }[],
 ): void {
   const storefrontUrl = (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-  const rows = orders
-    .filter((o) => o.guestToken)
-    .map(
-      (o) =>
-        `<li><a href="${storefrontUrl}/order-confirmation/${o.id}?token=${o.guestToken}">${o.orderNumber}</a>` +
-        ` — ${new Date(o.createdAt).toLocaleDateString('en-PK')}</li>`,
-    )
-    .join('');
 
-  const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:560px">
-      <h2>Your orders at Aabroo</h2>
-      <p>Here are the orders placed with this email address:</p>
-      <ul>${rows}</ul>
-      <p style="color:#666;font-size:13px">If you didn't request this, you can ignore this email.</p>
-    </div>`;
-
-  void sendEmail(email, 'Your Aabroo orders', html);
+  void (async () => {
+    try {
+      const branding = await getEmailBranding();
+      const { subject, html } = await renderEmail(
+        'ORDER_LINKS',
+        {
+          ordersList: renderOrdersList(
+            orders
+              .filter((o) => o.guestToken)
+              .map((o) => ({
+                orderNumber: o.orderNumber,
+                date: new Date(o.createdAt).toLocaleDateString('en-PK'),
+                url: `${storefrontUrl}/order-confirmation/${o.id}?token=${o.guestToken}`,
+              })),
+            branding.accentColor,
+          ),
+        },
+        { branding },
+      );
+      await sendEmail(email, subject, html);
+    } catch (err) {
+      console.error('[email] render failed for ORDER_LINKS:', (err as Error).message);
+    }
+  })();
 }
 
 /**
  * Sends the password-reset link.
  *
- * Uses the same sendEmail() as everything else, so it needs no special handling
- * before SMTP exists: with SMTP_HOST unset the link is printed to the server log
- * (usable straight away), and the moment SMTP_HOST is set it starts being
- * delivered for real — no code change.
+ * Uses the same sendEmail() as everything else, so it works before any mail
+ * provider is configured (the link is logged) and starts delivering the moment
+ * one is — with no code change.
  */
 export function notifyPasswordReset(email: string, name: string, token: string): void {
   const storefrontUrl = (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-  const link = `${storefrontUrl}/reset-password?token=${encodeURIComponent(token)}`;
+  const resetUrl = `${storefrontUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
-  const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:560px">
-      <h2>Reset your password</h2>
-      <p>Hi ${name.split(' ')[0]}, we received a request to reset the password on your Aabroo account.</p>
-      <p style="margin:22px 0">
-        <a href="${link}" style="display:inline-block;background:#B4530A;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600">Choose a new password</a>
-      </p>
-      <p style="color:#666;font-size:13px">Or paste this into your browser:<br><span style="word-break:break-all">${link}</span></p>
-      <p style="color:#666;font-size:13px">This link expires in 1 hour and can only be used once.</p>
-      <p style="color:#666;font-size:13px">If you didn't request this, you can ignore this email — your password won't change.</p>
-    </div>`;
-
-  void sendEmail(email, 'Reset your Aabroo password', html);
+  void (async () => {
+    try {
+      const { subject, html } = await renderEmail(
+        'PASSWORD_RESET',
+        { firstName: name.split(' ')[0], customerName: name, resetUrl },
+        { cta: { label: 'Choose a new password', url: resetUrl } },
+      );
+      await sendEmail(email, subject, html);
+    } catch (err) {
+      console.error('[email] render failed for PASSWORD_RESET:', (err as Error).message);
+    }
+  })();
 }
 
 export function notifyOrderStatus(order: OrderLike, to: Recipient): void {
   const label = STATUS_LABEL[order.status] ?? order.status;
-  const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:560px">
-      <h2>Order ${order.orderNumber} update</h2>
-      <p>Hi ${to.name.split(' ')[0]}, your order is now <strong>${label.toUpperCase()}</strong>.</p>
-      <p>Thank you for shopping with Aabroo.</p>
-    </div>`;
+  const storefrontUrl = (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const orderUrl = `${storefrontUrl}/account/orders`;
 
-  void Promise.allSettled([
-    sendEmail(to.email, `Order ${order.orderNumber} is ${label}`, html),
-    sendWhatsApp(to.phone, [to.name.split(' ')[0], order.orderNumber, label]),
-  ]);
+  void (async () => {
+    try {
+      const { subject, html } = await renderEmail(
+        'ORDER_STATUS',
+        {
+          firstName: to.name.split(' ')[0],
+          customerName: to.name,
+          orderNumber: order.orderNumber,
+          statusLabel: label,
+          orderUrl,
+        },
+        { cta: { label: 'Track your order', url: orderUrl } },
+      );
+      await sendEmail(to.email, subject, html);
+    } catch (err) {
+      console.error('[email] render failed for ORDER_STATUS:', (err as Error).message);
+    }
+  })();
+
+  void sendWhatsApp(to.phone, [to.name.split(' ')[0], order.orderNumber, label]);
+}
+
+/**
+ * Sends already-rendered HTML and RETURNS the outcome instead of logging it.
+ * Used by the admin "send test" action, which needs the failure reason back.
+ */
+export async function sendRenderedEmail(
+  to: string,
+  subject: string,
+  html: string,
+): Promise<{ ok: boolean; transport?: 'http' | 'smtp'; error?: string; code?: string; response?: string }> {
+  try {
+    if (httpEmailConfigured) {
+      const response = await sendViaHttp(to, subject, html);
+      return { ok: true, transport: 'http', response };
+    }
+    const tx = getTransporter();
+    if (!tx) return { ok: false, error: 'No email transport configured (set MAILTRAP_API_TOKEN or SMTP_HOST)' };
+    const info = await tx.sendMail({ from: process.env.EMAIL_FROM ?? 'orders@store.pk', to, subject, html });
+    return { ok: true, transport: 'smtp', response: info.response };
+  } catch (err) {
+    return {
+      ok: false,
+      transport: httpEmailConfigured ? 'http' : 'smtp',
+      error: (err as Error).message,
+      code: (err as NodeJS.ErrnoException).code,
+    };
+  }
 }
 
 /**
