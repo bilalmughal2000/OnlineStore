@@ -509,16 +509,25 @@ model EmailTemplate {
   updatedAt DateTime @updatedAt
 }
 
+/// Immutable record of every write made through the admin panel.
+///
+/// The actor's name and email are copied onto the row rather than only being
+/// joined from User. An audit trail has to outlive the account it describes —
+/// when a staff member leaves and their account is removed, the history of what
+/// they did must stay readable, so `adminId` goes null while the record remains.
 model AdminActivityLog {
-  id        String   @id @default(cuid())
-  adminId   String
-  action    String
-  entity    String
-  entityId  String?
-  meta      Json?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  adminId    String?
+  adminName  String
+  adminEmail String
+  action     String
+  entity     String
+  entityId   String?
+  meta       Json?
+  createdAt  DateTime @default(now())
 
-  admin User @relation(fields: [adminId], references: [id])
+  admin User? @relation(fields: [adminId], references: [id], onDelete: SetNull)
 
   @@index([adminId])
+  @@index([createdAt])
 }

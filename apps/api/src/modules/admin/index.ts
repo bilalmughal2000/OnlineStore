@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireRole } from '../../middleware/auth';
+import { auditLog } from '../../middleware/auditLog';
 import { bumpCacheVersion } from '../../lib/cache';
 import { pingStorefrontRevalidate } from '../../lib/revalidate';
 import { sendTestEmail } from '../../lib/notify';
@@ -13,10 +14,28 @@ import { adminEmailRouter } from './email.routes';
 
 export const adminRouter = Router();
 
-// Every admin route requires ADMIN or STAFF role (RBAC enforced server-side).
+/**
+ * Admin RBAC, in two tiers.
+ *
+ * Baseline: ADMIN or STAFF. That covers the day-to-day — orders, catalogue,
+ * reviews, homepage, pages, uploads.
+ *
+ * Owner-only (ADMIN) is layered on top for anything that either moves money or
+ * would let a staff account escalate its own reach:
+ *   /users        — creating accounts and handing out roles (in users.routes)
+ *   /coupons      — minting discounts (in marketing.routes)
+ *   /settings     — shipping rates, COD ceiling, payment methods (in marketing.routes)
+ *   /activity     — the audit trail itself (in marketing.routes)
+ *   /email        — the templates customers receive, incl. the password-reset mail
+ *   /diagnostics  — server config: mail host, from-address, CORS origins
+ *
+ * Enforced here on the server, not in the admin UI; the UI hiding is only so
+ * staff aren't shown doors they can't open.
+ */
 adminRouter.use(requireRole('ADMIN', 'STAFF'));
 
-// Any successful admin write invalidates the public read cache.
+// Any successful admin write invalidates the public read cache, and is recorded
+// in the audit trail. Both hang off `finish` so they only fire on real success.
 adminRouter.use((req, res, next) => {
   if (req.method !== 'GET') {
     res.on('finish', () => {
@@ -28,6 +47,7 @@ adminRouter.use((req, res, next) => {
   }
   next();
 });
+adminRouter.use(auditLog);
 
 /**
  * GET /admin/diagnostics — what the *running* server actually has configured.
@@ -36,7 +56,7 @@ adminRouter.use((req, res, next) => {
  * be answered by reading the repo — only by asking the process. Reports booleans
  * and non-sensitive values only; never credentials.
  */
-adminRouter.get('/diagnostics', (_req, res) => {
+adminRouter.get('/diagnostics', ...requireRole('ADMIN'), (_req, res) => {
   const smtpHost = process.env.SMTP_HOST ?? '';
   const httpToken = Boolean(process.env.MAILTRAP_API_TOKEN);
   res.json({
@@ -72,14 +92,14 @@ adminRouter.get('/diagnostics', (_req, res) => {
  * which means their failures are invisible to the caller. This does the same
  * send synchronously so the reason for a failure comes straight back.
  */
-adminRouter.post('/diagnostics/test-email', async (req, res) => {
+adminRouter.post('/diagnostics/test-email', ...requireRole('ADMIN'), async (req, res) => {
   const to = typeof req.body?.to === 'string' ? req.body.to : null;
   if (!to) return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Provide "to"' } });
   const result = await sendTestEmail(to);
   res.status(result.ok ? 200 : 500).json(result);
 });
 
-adminRouter.use('/email', adminEmailRouter);
+adminRouter.use('/email', requireRole('ADMIN'), adminEmailRouter);
 adminRouter.use('/dashboard', adminDashboardRouter);
 adminRouter.use('/uploads', adminUploadsRouter);
 adminRouter.use('/users', adminUsersRouter);

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import { Layout } from '@/components/Layout';
+import { RequireAdmin } from '@/components/RequireAdmin';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 import { Products } from '@/pages/Products';
@@ -15,6 +16,7 @@ import { Reviews } from '@/pages/Reviews';
 import { Pages } from '@/pages/Pages';
 import { Settings } from '@/pages/Settings';
 import { Emails } from '@/pages/Emails';
+import { Activity } from '@/pages/Activity';
 
 export function App() {
   const { user, loading } = useAuth();
@@ -40,14 +42,15 @@ export function App() {
         <Route path="categories" element={<Categories />} />
         <Route path="orders" element={<Orders />} />
         <Route path="orders/:id" element={<OrderDetail />} />
-        <Route path="coupons" element={<Coupons />} />
+        <Route path="coupons" element={<RequireAdmin><Coupons /></RequireAdmin>} />
         <Route path="sections" element={<Homepage />} />
-        <Route path="users" element={<Users />} />
-        <Route path="customers" element={<Users />} />
+        <Route path="users" element={<RequireAdmin><Users /></RequireAdmin>} />
+        <Route path="customers" element={<RequireAdmin><Users /></RequireAdmin>} />
         <Route path="reviews" element={<Reviews />} />
         <Route path="pages" element={<Pages />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="emails" element={<Emails />} />
+        <Route path="settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
+        <Route path="emails" element={<RequireAdmin><Emails /></RequireAdmin>} />
+        <Route path="activity" element={<RequireAdmin><Activity /></RequireAdmin>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

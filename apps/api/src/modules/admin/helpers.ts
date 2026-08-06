@@ -26,15 +26,3 @@ export async function uniqueSlug(
     slug = `${root}-${++n}`;
   }
 }
-
-export async function logActivity(
-  adminId: string,
-  action: string,
-  entity: string,
-  entityId?: string,
-  meta?: unknown,
-) {
-  await prisma.adminActivityLog.create({
-    data: { adminId, action, entity, entityId, meta: meta as never },
-  });
-}

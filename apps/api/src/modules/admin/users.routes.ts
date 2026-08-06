@@ -8,7 +8,7 @@ import { requireRole } from '../../middleware/auth';
 import { serialize } from '../../lib/serialize';
 import { toNum } from '../../lib/money';
 import { badRequest, forbidden, notFound } from '../../lib/errors';
-import { logActivity } from './helpers';
+import { auditMeta } from '../../middleware/auditLog';
 
 export const adminUsersRouter = Router();
 
@@ -216,7 +216,6 @@ adminUsersRouter.post(
       },
       select: publicSelect,
     });
-    await logActivity(req.auth!.userId, 'create', 'User', user.id, { email: user.email, role: user.role });
     res.status(201).json({ user: serialize(user) });
   }),
 );
@@ -256,7 +255,6 @@ adminUsersRouter.patch(
     if (body.password) data.passwordHash = await bcrypt.hash(body.password, 10);
 
     const user = await prisma.user.update({ where: { id: target.id }, data, select: publicSelect });
-    await logActivity(req.auth!.userId, 'update', 'User', user.id);
     res.json({ user: serialize(user) });
   }),
 );
@@ -273,7 +271,9 @@ adminUsersRouter.delete(
       if (admins <= 1) throw badRequest('Cannot delete the last admin');
     }
     await prisma.user.delete({ where: { id: target.id } });
-    await logActivity(req.auth!.userId, 'delete', 'User', target.id, { email: target.email });
+    // The row is about to vanish, so record who it was — an id alone would
+    // leave the audit trail pointing at nothing.
+    auditMeta(res, { email: target.email, role: target.role });
     res.json({ ok: true });
   }),
 );

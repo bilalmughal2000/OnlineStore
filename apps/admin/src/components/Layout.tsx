@@ -11,22 +11,27 @@ import {
   FileText,
   Settings,
   Mail,
+  History,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
+// `adminOnly` mirrors the server's RBAC (apps/api/src/modules/admin/index.ts).
+// Hiding a link is a courtesy, not a control — the API refuses these routes for
+// STAFF regardless of what the sidebar shows.
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/products', label: 'Products', icon: Package },
   { to: '/categories', label: 'Categories', icon: FolderTree },
   { to: '/orders', label: 'Orders', icon: ShoppingCart },
-  { to: '/coupons', label: 'Coupons', icon: Ticket },
+  { to: '/coupons', label: 'Coupons', icon: Ticket, adminOnly: true },
   { to: '/sections', label: 'Homepage', icon: LayoutTemplate },
-  { to: '/users', label: 'Customers & Users', icon: Users },
+  { to: '/users', label: 'Customers & Users', icon: Users, adminOnly: true },
   { to: '/reviews', label: 'Reviews', icon: Star },
   { to: '/pages', label: 'Pages', icon: FileText },
-  { to: '/emails', label: 'Emails', icon: Mail },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/emails', label: 'Emails', icon: Mail, adminOnly: true },
+  { to: '/activity', label: 'Activity Log', icon: History, adminOnly: true },
+  { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ];
 
 export function Layout() {
@@ -41,7 +46,7 @@ export function Layout() {
           <p className="text-xs text-stone-500">Store management</p>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {NAV.map((n) => (
+          {NAV.filter((n) => !n.adminOnly || user?.role === 'ADMIN').map((n) => (
             <NavLink
               key={n.to}
               to={n.to}

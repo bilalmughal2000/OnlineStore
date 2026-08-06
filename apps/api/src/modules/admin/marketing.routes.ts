@@ -4,9 +4,23 @@ import { prisma } from '@store/database';
 import { couponInputSchema, sectionInputSchema } from '@store/shared-types';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
+import { requireRole } from '../../middleware/auth';
 import { serialize } from '../../lib/serialize';
 
 export const adminMarketingRouter = Router();
+
+/**
+ * Owner-only areas inside this router.
+ *
+ * The rest of /admin is open to STAFF, but these three control money and
+ * accountability rather than day-to-day operations:
+ *   - /coupons  — a discount code is a direct, unreviewed withdrawal from margin
+ *   - /settings — shipping rates, the COD ceiling and which payment methods run
+ *   - /activity — the audit trail; whoever is being audited must not curate it
+ *
+ * `.use()` matches by prefix, so this also covers /coupons/:id, /settings/:key etc.
+ */
+adminMarketingRouter.use(['/coupons', '/settings', '/activity'], requireRole('ADMIN'));
 
 // ─────────────── Coupons ───────────────
 adminMarketingRouter.get(
@@ -287,8 +301,9 @@ adminMarketingRouter.put(
 adminMarketingRouter.get(
   '/activity',
   asyncHandler(async (_req, res) => {
+    // adminName/adminEmail are stored on the row, so entries stay attributable
+    // after the account is deleted; no join needed.
     const logs = await prisma.adminActivityLog.findMany({
-      include: { admin: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });

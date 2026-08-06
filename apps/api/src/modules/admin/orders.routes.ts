@@ -8,7 +8,7 @@ import { serialize } from '../../lib/serialize';
 import { notFound } from '../../lib/errors';
 import { toNum } from '../../lib/money';
 import { notifyOrderStatus } from '../../lib/notify';
-import { logActivity } from './helpers';
+import { auditMeta } from '../../middleware/auditLog';
 
 export const adminOrdersRouter = Router();
 
@@ -103,7 +103,7 @@ adminOrdersRouter.patch(
       },
       include: orderInclude,
     });
-    await logActivity(req.auth!.userId, 'update-status', 'Order', order.id, { status });
+    auditMeta(res, { orderNumber: order.orderNumber, status });
     // Notify the customer of the status change (email + WhatsApp), best-effort.
     // Works for guests too — see recipientFor().
     const recipient = recipientFor(order);

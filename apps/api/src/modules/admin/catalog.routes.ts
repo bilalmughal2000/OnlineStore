@@ -6,7 +6,8 @@ import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { serialize } from '../../lib/serialize';
 import { notFound } from '../../lib/errors';
-import { uniqueSlug, logActivity } from './helpers';
+import { uniqueSlug } from './helpers';
+import { auditMeta } from '../../middleware/auditLog';
 
 export const adminCatalogRouter = Router();
 
@@ -107,7 +108,6 @@ adminCatalogRouter.post(
       },
       include: fullInclude,
     });
-    await logActivity(req.auth!.userId, 'create', 'Product', product.id, { title: product.title });
     res.status(201).json({ product: serialize(product) });
   }),
 );
@@ -193,7 +193,6 @@ adminCatalogRouter.put(
         include: fullInclude,
       });
     });
-    await logActivity(req.auth!.userId, 'update', 'Product', product.id);
     res.json({ product: serialize(product) });
   }),
 );
@@ -201,8 +200,8 @@ adminCatalogRouter.put(
 adminCatalogRouter.delete(
   '/products/:id',
   asyncHandler(async (req, res) => {
-    await prisma.product.delete({ where: { id: req.params.id } });
-    await logActivity(req.auth!.userId, 'delete', 'Product', req.params.id);
+    const product = await prisma.product.delete({ where: { id: req.params.id } });
+    auditMeta(res, { title: product.title, slug: product.slug });
     res.json({ ok: true });
   }),
 );
