@@ -55,7 +55,10 @@ async function req<T>(path: string, opts: { method?: string; body?: unknown; ret
 }
 
 // Multipart upload (product images / size-chart images). Returns the hosted URL.
-export async function uploadImage(file: File, folder: 'products' | 'size-charts'): Promise<string> {
+export async function uploadImage(
+  file: File,
+  folder: 'products' | 'size-charts' | 'branding',
+): Promise<string> {
   const fd = new FormData();
   fd.append('file', file);
   const headers: Record<string, string> = {};

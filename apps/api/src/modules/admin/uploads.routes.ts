@@ -64,16 +64,35 @@ function saveToDisk(buffer: Buffer, originalName: string, req: import('express')
 }
 
 /**
- * POST /admin/uploads?folder=products|size-charts
+ * POST /admin/uploads?folder=products|size-charts|branding
  * Multipart form field: `file`. Returns { url }.
  * Used for BOTH product images and size-chart images.
  */
+/**
+ * Multer reports a rejected file type or an oversized upload by passing an
+ * Error to next(), which the generic handler turns into a 500 "Something went
+ * wrong". These are the user's mistakes, not server faults — they need a 400
+ * that says which, or the uploader gives no clue what to fix.
+ */
+const uploadFile: import('express').RequestHandler = (req, res, next) =>
+  upload.single('file')(req, res, (err?: unknown) => {
+    if (!err) return next();
+    const message =
+      (err as { code?: string }).code === 'LIMIT_FILE_SIZE'
+        ? 'That image is larger than 5 MB. Please upload a smaller file.'
+        : (err as Error).message || 'Upload failed';
+    next(badRequest(message));
+  });
+
 adminUploadsRouter.post(
   '/',
-  upload.single('file'),
+  uploadFile,
   asyncHandler(async (req, res) => {
     if (!req.file) throw badRequest('No file uploaded (field "file")');
-    const folder = req.query.folder === 'size-charts' ? 'size-charts' : 'products';
+    // Keep uploads in known folders — the value reaches Cloudinary's path, so
+    // an arbitrary string from the client shouldn't shape it.
+    const requested = String(req.query.folder ?? '');
+    const folder = (['size-charts', 'branding'] as const).find((f) => f === requested) ?? 'products';
 
     const url = cloudinaryConfigured
       ? await uploadToCloudinary(req.file.buffer, folder)

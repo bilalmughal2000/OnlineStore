@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Mail, Eye, Send, RotateCcw, Save, Palette } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { Mail, Eye, Send, RotateCcw, Save, Palette, Upload, X } from 'lucide-react';
+import { api, ApiError, uploadImage } from '@/lib/api';
 import { RichTextEditor } from '@/components/RichTextEditor';
 
 /**
@@ -211,16 +211,20 @@ export function Emails() {
               <input className="input flex-1" value={branding.accentColor ?? ''} onChange={setB('accentColor')} />
             </div>
           </div>
-          <div>
-            <label className="label">Logo URL</label>
-            <input className="input" value={branding.logoUrl ?? ''} onChange={setB('logoUrl')} placeholder="https://…/logo.png" />
-            <p className="mt-1 text-xs text-stone-400">Shown instead of the store name.</p>
-          </div>
-          <div>
-            <label className="label">Header image / GIF URL</label>
-            <input className="input" value={branding.headerImageUrl ?? ''} onChange={setB('headerImageUrl')} placeholder="https://…/banner.gif" />
-            <p className="mt-1 text-xs text-stone-400">A banner under the header. Animated GIFs work.</p>
-          </div>
+          <ImageField
+            label="Logo"
+            hint="Shown instead of the store name. PNG with a transparent background works best."
+            value={branding.logoUrl ?? ''}
+            onChange={(url) => setBranding((b) => ({ ...b, logoUrl: url }))}
+            previewClass="max-h-12"
+          />
+          <ImageField
+            label="Header image / GIF"
+            hint="A banner under the header. Animated GIFs are supported."
+            value={branding.headerImageUrl ?? ''}
+            onChange={(url) => setBranding((b) => ({ ...b, headerImageUrl: url }))}
+            previewClass="max-h-24 w-full object-cover"
+          />
           <div>
             <label className="label">Support email</label>
             <input className="input" value={branding.supportEmail ?? ''} onChange={setB('supportEmail')} />
@@ -338,6 +342,87 @@ export function Emails() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Upload-or-paste image field.
+ *
+ * Uploading is the path people actually want — but the URL stays editable so an
+ * image already hosted elsewhere (a CDN, an existing brand asset) can be used
+ * without re-uploading it.
+ */
+function ImageField({
+  label,
+  hint,
+  value,
+  onChange,
+  previewClass,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  onChange: (url: string) => void;
+  previewClass: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const inputId = `upload-${label.replace(/\W+/g, '-').toLowerCase()}`;
+
+  const pick = async (file?: File) => {
+    if (!file) return;
+    setErr(null);
+    setBusy(true);
+    try {
+      onChange(await uploadImage(file, 'branding'));
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Upload failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <label className="label">{label}</label>
+
+      {value && (
+        <div className="mb-2 rounded-md border border-stone-200 bg-stone-50 p-2">
+          <img src={value} alt="" className={`mx-auto block rounded ${previewClass}`} />
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <label
+          htmlFor={inputId}
+          className="btn-outline cursor-pointer whitespace-nowrap text-xs"
+          aria-disabled={busy}
+        >
+          <Upload size={14} /> {busy ? 'Uploading…' : value ? 'Replace' : 'Upload'}
+        </label>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+          className="hidden"
+          onChange={(e) => pick(e.target.files?.[0])}
+        />
+        {value && (
+          <button type="button" onClick={() => onChange('')} className="btn-ghost text-xs text-red-600">
+            <X size={14} /> Remove
+          </button>
+        )}
+      </div>
+
+      <input
+        className="input mt-2 text-xs"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="…or paste an image URL"
+      />
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+      <p className="mt-1 text-xs text-stone-400">{hint} Max 5 MB.</p>
     </div>
   );
 }
