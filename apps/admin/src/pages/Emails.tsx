@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Mail, Eye, Send, RotateCcw, Save, Palette, Upload, X } from 'lucide-react';
+import { Mail, Eye, Send, RotateCcw, Save, Palette, Upload } from 'lucide-react';
 import { api, ApiError, uploadImage } from '@/lib/api';
 import { RichTextEditor } from '@/components/RichTextEditor';
 
@@ -385,21 +385,34 @@ function ImageField({
 
   return (
     <div>
-      <label className="label">{label}</label>
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <label className="label mb-0">{label}</label>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-xs text-stone-400 hover:text-red-600"
+          >
+            Remove
+          </button>
+        )}
+      </div>
 
-      {value && (
-        <div className="mb-2 rounded-md border border-stone-200 bg-stone-50 p-2">
-          <img src={value} alt="" className={`mx-auto block rounded ${previewClass}`} />
-        </div>
-      )}
-
-      <div className="flex gap-2">
+      {/* One row: upload on the left, URL on the right. They're alternatives,
+          so showing them together makes that obvious — stacking implied a
+          sequence. min-w-0 lets the input shrink instead of overflowing the
+          three-column grid. */}
+      <div className="flex items-stretch gap-2">
         <label
           htmlFor={inputId}
-          className="btn-outline cursor-pointer whitespace-nowrap text-xs"
-          aria-disabled={busy}
+          title="Upload an image"
+          className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-xs font-medium ${
+            busy
+              ? 'pointer-events-none border-stone-200 bg-stone-100 text-stone-400'
+              : 'border-stone-300 bg-white text-stone-700 hover:border-brand hover:text-brand'
+          }`}
         >
-          <Upload size={14} /> {busy ? 'Uploading…' : value ? 'Replace' : 'Upload'}
+          <Upload size={14} /> {busy ? 'Uploading…' : 'Upload'}
         </label>
         <input
           id={inputId}
@@ -408,19 +421,20 @@ function ImageField({
           className="hidden"
           onChange={(e) => pick(e.target.files?.[0])}
         />
-        {value && (
-          <button type="button" onClick={() => onChange('')} className="btn-ghost text-xs text-red-600">
-            <X size={14} /> Remove
-          </button>
-        )}
+        <input
+          className="input min-w-0 flex-1 text-xs"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="or paste an image URL"
+        />
       </div>
 
-      <input
-        className="input mt-2 text-xs"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="…or paste an image URL"
-      />
+      {value && (
+        <div className="mt-2 rounded-md border border-stone-200 bg-stone-50 p-2">
+          <img src={value} alt="" className={`mx-auto block rounded ${previewClass}`} />
+        </div>
+      )}
+
       {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
       <p className="mt-1 text-xs text-stone-400">{hint} Max 5 MB.</p>
     </div>
