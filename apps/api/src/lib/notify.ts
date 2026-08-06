@@ -35,22 +35,32 @@ function getTransporter(): Transporter | null {
   return transporter;
 }
 
+/**
+ * Every outcome is logged. Silence used to be ambiguous — a missing recipient,
+ * a missing SMTP config and a successful send all produced no output, which
+ * makes "the email never arrived" impossible to diagnose from the logs.
+ */
 async function sendEmail(to: string | null, subject: string, html: string): Promise<void> {
-  if (!to) return;
+  if (!to) {
+    console.warn(`[email] SKIPPED "${subject}" — no recipient address on the record`);
+    return;
+  }
   const from = process.env.EMAIL_FROM ?? 'orders@store.pk';
   const tx = getTransporter();
   if (!tx) {
     // Also surface any links so a developer can follow them from the console —
     // guest order links carry a token and are otherwise only in a real inbox.
     const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    console.log(`[email:dev] SMTP_HOST not set — logging instead of sending`);
     console.log(`[email:dev] To: ${to} | ${subject}`);
     for (const l of links) console.log(`[email:dev]   link: ${l}`);
     return;
   }
   try {
-    await tx.sendMail({ from, to, subject, html });
+    const info = await tx.sendMail({ from, to, subject, html });
+    console.log(`[email] SENT "${subject}" -> ${to} (${info.messageId}) ${info.response ?? ''}`);
   } catch (err) {
-    console.error('[email] send failed:', (err as Error).message);
+    console.error(`[email] FAILED "${subject}" -> ${to}: ${(err as Error).message}`);
   }
 }
 
