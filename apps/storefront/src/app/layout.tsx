@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer';
 import { PageBack } from '@/components/PageBack';
 import { api } from '@/lib/api';
 import { Analytics } from '@/components/Analytics';
+import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { SITE_URL } from '@/lib/site';
 import { THEMES, DEFAULT_THEME, type ThemePalette } from '@store/shared-types';
 
@@ -58,9 +59,10 @@ async function getShell() {
       promoText: (settings?.store?.promoText as string) ?? '',
       themeKey: (settings?.store?.theme as string) ?? DEFAULT_THEME,
       customTheme: settings?.store?.customTheme as ThemePalette | undefined,
+      whatsapp: (settings?.whatsapp ?? {}) as { enabled?: boolean; phone?: string; greeting?: string },
     };
   } catch {
-    return { header: [], footer: [], storeName: 'Aabroo', promoText: '', themeKey: DEFAULT_THEME, customTheme: undefined };
+    return { header: [], footer: [], storeName: 'Aabroo', promoText: '', themeKey: DEFAULT_THEME, customTheme: undefined, whatsapp: {} };
   }
 }
 
@@ -108,7 +110,7 @@ function siteJsonLd(storeName: string) {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { header, footer, storeName, promoText, themeKey, customTheme } = await getShell();
+  const { header, footer, storeName, promoText, themeKey, customTheme, whatsapp } = await getShell();
   return (
     <html lang="en" style={themeVars(themeKey, customTheme)}>
       <head>
@@ -130,6 +132,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
           <Footer links={footer} storeName={storeName} />
         </StoreProvider>
+        {/* Free click-to-chat — no API, no approval. Hidden until a number
+            is set in admin so it can never link somewhere dead. */}
+        {whatsapp?.enabled && whatsapp?.phone && (
+          <WhatsAppButton phone={whatsapp.phone} greeting={whatsapp.greeting} storeName={storeName} />
+        )}
         <Analytics />
       </body>
     </html>

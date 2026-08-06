@@ -160,7 +160,7 @@ contentRouter.get(
   asyncHandler(async (_req, res) => {
     const data = await cached('content:settings', 300, async () => {
       const rows = await prisma.setting.findMany({
-        where: { key: { in: ['store', 'shipping', 'payments'] } },
+        where: { key: { in: ['store', 'shipping', 'payments', 'whatsapp'] } },
       });
       // Never expose which payment credentials exist — only enabled flags.
       return { settings: Object.fromEntries(rows.map((r) => [r.key, r.value])) };

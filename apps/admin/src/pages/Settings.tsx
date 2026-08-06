@@ -65,6 +65,42 @@ export function Settings() {
           <input type="number" className="input" value={settings.payments?.codMaxValue ?? 0} onChange={(e) => upd('payments', 'codMaxValue', Number(e.target.value))} />
         </Field>
       </Section>
+
+      {/* WhatsApp — a plain wa.me link, so there's no API, approval or cost. */}
+      <Section title="WhatsApp Chat Button" onSave={() => save('whatsapp')} saved={saved === 'whatsapp'}>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!settings.whatsapp?.enabled}
+            onChange={(e) => upd('whatsapp', 'enabled', e.target.checked)}
+          />
+          Show the floating WhatsApp button on the storefront
+        </label>
+        <Field label="WhatsApp number (with country code)">
+          <input
+            className="input"
+            placeholder="923001234567"
+            value={settings.whatsapp?.phone ?? ''}
+            onChange={(e) => upd('whatsapp', 'phone', e.target.value)}
+          />
+          <p className="mt-1 text-xs text-stone-400">
+            Country code, no “+”, no spaces or dashes — e.g. 923001234567 for 0300 1234567.
+            The button stays hidden until this is filled in.
+          </p>
+        </Field>
+        <Field label="Pre-filled message">
+          <input
+            className="input"
+            placeholder="Hi Aabroo! I have a question."
+            value={settings.whatsapp?.greeting ?? ''}
+            onChange={(e) => upd('whatsapp', 'greeting', e.target.value)}
+          />
+          <p className="mt-1 text-xs text-stone-400">
+            What the customer’s message box is pre-filled with. On a product page the product
+            name is appended automatically, so you can see what they were looking at.
+          </p>
+        </Field>
+      </Section>
     </div>
   );
 }
