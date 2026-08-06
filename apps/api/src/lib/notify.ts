@@ -19,6 +19,55 @@ const fmtPKR = (n: number) =>
   new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(n);
 
 // ─────────────────────────── Email ───────────────────────────
+//
+// Two transports, chosen automatically:
+//
+//   1. HTTP API (Mailtrap) — used when MAILTRAP_API_TOKEN is set.
+//   2. SMTP (nodemailer)   — used when SMTP_HOST is set.
+//
+// HTTP exists because most hosting platforms, Railway included, block outbound
+// SMTP ports as an anti-spam measure. The connection simply times out
+// (ETIMEDOUT), so SMTP cannot work there at all. HTTPS is never blocked.
+//
+// On cPanel the mailbox lives on the same host, so SMTP works fine — leave the
+// Mailtrap token unset there and this falls back to it with no code change.
+
+const mailtrapToken = process.env.MAILTRAP_API_TOKEN ?? '';
+/** Sandbox inbox id. Set = nothing is delivered; unset = Mailtrap sends for real. */
+const mailtrapInboxId = process.env.MAILTRAP_INBOX_ID ?? '';
+const httpEmailConfigured = Boolean(mailtrapToken);
+
+/** Splits `Aabroo <orders@aabroo.pk>` into its parts; the HTTP API wants them separate. */
+function parseFrom(value: string): { email: string; name?: string } {
+  const match = value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (match) return { name: match[1] || undefined, email: match[2] };
+  return { email: value.trim() };
+}
+
+async function sendViaHttp(to: string, subject: string, html: string): Promise<string> {
+  // The sandbox and live endpoints take an identical body — only the URL differs.
+  const url = mailtrapInboxId
+    ? `https://sandbox.api.mailtrap.io/api/send/${mailtrapInboxId}`
+    : 'https://send.api.mailtrap.io/api/send';
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Api-Token': mailtrapToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: parseFrom(process.env.EMAIL_FROM ?? 'orders@store.pk'),
+      to: [{ email: to }],
+      subject,
+      html,
+    }),
+    // Sending is fire-and-forget, so an unbounded request would hang silently.
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  const body = await res.text();
+  if (!res.ok) throw new Error(`Mailtrap API ${res.status}: ${body.slice(0, 300)}`);
+  return body.slice(0, 200);
+}
+
 let transporter: Transporter | null = null;
 const smtpConfigured = Boolean(process.env.SMTP_HOST);
 
@@ -57,19 +106,26 @@ async function sendEmail(to: string | null, subject: string, html: string): Prom
       console.warn(`[email] SKIPPED "${subject}" — no recipient address on the record`);
       return;
     }
+    // HTTP first: it works on hosts that block outbound SMTP.
+    if (httpEmailConfigured) {
+      const response = await sendViaHttp(to, subject, html);
+      console.log(`[email] SENT via HTTP "${subject}" -> ${to} ${response}`);
+      return;
+    }
+
     const from = process.env.EMAIL_FROM ?? 'orders@store.pk';
     const tx = getTransporter();
     if (!tx) {
       // Also surface any links so a developer can follow them from the console —
       // guest order links carry a token and are otherwise only in a real inbox.
       const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-      console.log(`[email:dev] SMTP_HOST not set — logging instead of sending`);
+      console.log(`[email:dev] No email transport configured — logging instead of sending`);
       console.log(`[email:dev] To: ${to} | ${subject}`);
       for (const l of links) console.log(`[email:dev]   link: ${l}`);
       return;
     }
     const info = await tx.sendMail({ from, to, subject, html });
-    console.log(`[email] SENT "${subject}" -> ${to} (${info.messageId}) ${info.response ?? ''}`);
+    console.log(`[email] SENT via SMTP "${subject}" -> ${to} (${info.messageId}) ${info.response ?? ''}`);
   } catch (err) {
     console.error(
       `[email] FAILED "${subject}" -> ${to}: ${(err as Error).message}`,
@@ -275,20 +331,36 @@ export function notifyOrderStatus(order: OrderLike, to: Recipient): void {
  */
 export async function sendTestEmail(
   to: string,
-): Promise<{ ok: boolean; messageId?: string; response?: string; error?: string; code?: string }> {
+): Promise<{
+  ok: boolean;
+  transport?: 'http' | 'smtp';
+  messageId?: string;
+  response?: string;
+  error?: string;
+  code?: string;
+}> {
+  const html =
+    '<h2>It works</h2><p>Your store can send email. Sent from the admin diagnostics endpoint.</p>';
   try {
+    if (httpEmailConfigured) {
+      const response = await sendViaHttp(to, 'Aabroo — test email', html);
+      return { ok: true, transport: 'http', response };
+    }
     const tx = getTransporter();
-    if (!tx) return { ok: false, error: 'SMTP_HOST is not set on this server' };
+    if (!tx) {
+      return { ok: false, error: 'No email transport configured (set MAILTRAP_API_TOKEN or SMTP_HOST)' };
+    }
     const info = await tx.sendMail({
       from: process.env.EMAIL_FROM ?? 'orders@store.pk',
       to,
       subject: 'Aabroo — test email',
-      html: '<h2>It works</h2><p>Your store can send email. Sent from the admin diagnostics endpoint.</p>',
+      html,
     });
-    return { ok: true, messageId: info.messageId, response: info.response };
+    return { ok: true, transport: 'smtp', messageId: info.messageId, response: info.response };
   } catch (err) {
     return {
       ok: false,
+      transport: httpEmailConfigured ? 'http' : 'smtp',
       error: (err as Error).message,
       code: (err as NodeJS.ErrnoException).code,
     };

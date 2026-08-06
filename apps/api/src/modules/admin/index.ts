@@ -37,10 +37,16 @@ adminRouter.use((req, res, next) => {
  */
 adminRouter.get('/diagnostics', (_req, res) => {
   const smtpHost = process.env.SMTP_HOST ?? '';
+  const httpToken = Boolean(process.env.MAILTRAP_API_TOKEN);
   res.json({
     nodeEnv: process.env.NODE_ENV ?? null,
     email: {
-      configured: Boolean(smtpHost),
+      // Which transport will actually be used. HTTP wins when both are set,
+      // because platforms like Railway block outbound SMTP.
+      transport: httpToken ? 'http' : smtpHost ? 'smtp' : 'none (logged only)',
+      httpApiConfigured: httpToken,
+      httpSandboxInbox: process.env.MAILTRAP_INBOX_ID ?? null,
+      configured: Boolean(smtpHost) || httpToken,
       host: smtpHost || null,
       port: process.env.SMTP_PORT ?? null,
       secure: process.env.SMTP_SECURE ?? null,
