@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '@store/database';
+import { prisma, Prisma } from '@store/database';
 import { couponInputSchema, sectionInputSchema } from '@store/shared-types';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { requireRole } from '../../middleware/auth';
+import { auditMeta } from '../../middleware/auditLog';
 import { serialize } from '../../lib/serialize';
+import { badRequest } from '../../lib/errors';
 
 export const adminMarketingRouter = Router();
 
@@ -298,15 +300,91 @@ adminMarketingRouter.put(
 );
 
 // ─────────────── Activity log ───────────────
+
+/**
+ * Turns `from`/`to` query params into a createdAt filter.
+ *
+ * `to` is treated as inclusive of the whole day: a user picking 5 Aug in a date
+ * input means "up to the end of 5 Aug", not midnight at its start — otherwise
+ * selecting a single day as both ends matches nothing.
+ */
+function dateRangeWhere(from: unknown, to: unknown): Prisma.DateTimeFilter | undefined {
+  const range: Prisma.DateTimeFilter = {};
+  if (typeof from === 'string' && from) {
+    const d = new Date(from);
+    if (!Number.isNaN(d.getTime())) range.gte = d;
+  }
+  if (typeof to === 'string' && to) {
+    const d = new Date(to);
+    if (!Number.isNaN(d.getTime())) {
+      if (!to.includes('T')) d.setHours(23, 59, 59, 999);
+      range.lte = d;
+    }
+  }
+  return range.gte || range.lte ? range : undefined;
+}
+
 adminMarketingRouter.get(
   '/activity',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const action = typeof req.query.action === 'string' ? req.query.action : '';
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize) || 50));
+    const createdAt = dateRangeWhere(req.query.from, req.query.to);
+
+    const where: Prisma.AdminActivityLogWhereInput = {
+      ...(action ? { action } : {}),
+      ...(createdAt ? { createdAt } : {}),
+      ...(search
+        ? {
+            OR: [
+              { adminName: { contains: search } },
+              { adminEmail: { contains: search } },
+              { entity: { contains: search } },
+              { entityId: { contains: search } },
+              { action: { contains: search } },
+            ],
+          }
+        : {}),
+    };
+
     // adminName/adminEmail are stored on the row, so entries stay attributable
     // after the account is deleted; no join needed.
-    const logs = await prisma.adminActivityLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+    const [logs, total] = await Promise.all([
+      prisma.adminActivityLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.adminActivityLog.count({ where }),
+    ]);
+    res.json({ logs: serialize(logs), total, page, pageSize });
+  }),
+);
+
+/**
+ * DELETE /admin/activity — retention cleanup.
+ *
+ * Requires an explicit `before` or `from`/`to`; there is deliberately no way to
+ * wipe the whole log in one unguarded call. The purge is itself audited (the
+ * middleware records this request), so the trail always shows that a deletion
+ * happened, who did it, and how much it removed.
+ */
+adminMarketingRouter.delete(
+  '/activity',
+  asyncHandler(async (req, res) => {
+    const createdAt = dateRangeWhere(req.query.from, req.query.before ?? req.query.to);
+    if (!createdAt) {
+      throw badRequest('Specify a date range: pass "before", or "from" and "to".');
+    }
+    const { count } = await prisma.adminActivityLog.deleteMany({ where: { createdAt } });
+    auditMeta(res, {
+      deleted: count,
+      from: createdAt.gte ?? null,
+      to: createdAt.lte ?? null,
     });
-    res.json({ logs: serialize(logs) });
+    res.json({ ok: true, deleted: count });
   }),
 );

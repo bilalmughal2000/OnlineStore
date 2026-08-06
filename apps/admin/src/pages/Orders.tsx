@@ -37,8 +37,8 @@ export function Orders() {
         />
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[46rem]">
           <thead className="border-b border-stone-200 bg-stone-50">
             <tr>
               <th className="th">Order</th>

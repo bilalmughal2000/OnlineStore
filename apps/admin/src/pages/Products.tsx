@@ -76,8 +76,8 @@ export function Products() {
         )}
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[48rem]">
           <thead className="border-b border-stone-200 bg-stone-50">
             <tr>
               <th className="th w-10"></th>

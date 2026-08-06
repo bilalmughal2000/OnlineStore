@@ -188,7 +188,7 @@ export function Users() {
 
       {guestsOnly ? (
         <div className="card overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[42rem]">
             <thead className="border-b border-stone-200 bg-stone-50">
               <tr>
                 <th className="th">Name</th>
@@ -237,8 +237,8 @@ export function Users() {
           </table>
         </div>
       ) : (
-      <div className="card overflow-hidden">
-        <table className="w-full">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[42rem]">
           <thead className="border-b border-stone-200 bg-stone-50">
             <tr>
               <th className="th">Name</th>

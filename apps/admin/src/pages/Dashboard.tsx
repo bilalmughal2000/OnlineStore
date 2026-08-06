@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -38,11 +39,12 @@ export function Dashboard() {
     <div>
       <h1 className="mb-6 font-serif text-2xl font-bold">Dashboard</h1>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {kpis.map((k) => (
           <div key={k.label} className="card p-4">
             <k.icon className="text-brand" size={20} />
-            <p className="mt-2 text-2xl font-bold">{k.value}</p>
+            {/* Revenue can run long; break rather than widen the grid column. */}
+            <p className="mt-2 break-words text-xl font-bold sm:text-2xl">{k.value}</p>
             <p className="text-xs text-stone-500">{k.label}</p>
           </div>
         ))}
@@ -74,11 +76,18 @@ export function Dashboard() {
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={data.paymentBreakdown} dataKey="count" nameKey="method" outerRadius={90} label>
+                {/*
+                  A percentage radius keeps the pie inside whatever width the
+                  card ends up with. Labels are drawn outside the arc, so at
+                  narrow widths they were being clipped by the card edge — a
+                  legend below carries the same information and can't overflow.
+                */}
+                <Pie data={data.paymentBreakdown} dataKey="count" nameKey="method" outerRadius="75%">
                   {data.paymentBreakdown.map((_: unknown, i: number) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
+                <Legend verticalAlign="bottom" height={24} iconSize={10} />
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
@@ -86,41 +95,54 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <div className="card overflow-hidden">
+      {/*
+        Recent Orders carries four columns to Top Products' two, so an even
+        split starves it. It takes 2/3 here, and the pair only sits side by side
+        from xl — below that the content area is too narrow for both at once.
+      */}
+      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+        <div className="card overflow-hidden xl:col-span-2">
           <h2 className="border-b border-stone-200 p-4 font-semibold">Recent Orders</h2>
-          <table className="w-full">
-            <tbody className="divide-y divide-stone-100">
-              {data.recentOrders.map((o: any) => (
-                <tr key={o.id}>
-                  <td className="td">
-                    <Link to={`/orders/${o.id}`} className="font-medium text-brand">{o.orderNumber}</Link>
-                    <p className="text-xs text-stone-500">{o.user?.name}</p>
-                  </td>
-                  <td className="td">{o.status}</td>
-                  <td className="td text-right font-medium">{formatPKR(o.total)}</td>
-                  <td className="td text-right text-xs text-stone-500">{formatDate(o.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {data.recentOrders.length === 0 ? (
+            <p className="td text-stone-500">No orders yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[34rem]">
+                <tbody className="divide-y divide-stone-100">
+                  {data.recentOrders.map((o: any) => (
+                    <tr key={o.id}>
+                      <td className="td">
+                        <Link to={`/orders/${o.id}`} className="font-medium text-brand">{o.orderNumber}</Link>
+                        <p className="text-xs text-stone-500">{o.user?.name}</p>
+                      </td>
+                      <td className="td whitespace-nowrap">{o.status}</td>
+                      <td className="td whitespace-nowrap text-right font-medium">{formatPKR(o.total)}</td>
+                      <td className="td whitespace-nowrap text-right text-xs text-stone-500">{formatDate(o.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="card overflow-hidden">
           <h2 className="border-b border-stone-200 p-4 font-semibold">Top Products</h2>
-          <table className="w-full">
-            <tbody className="divide-y divide-stone-100">
-              {data.topProducts.map((p: any) => (
-                <tr key={p.title}>
-                  <td className="td">{p.title}</td>
-                  <td className="td text-right font-medium">{p.sold} sold</td>
-                </tr>
-              ))}
-              {data.topProducts.length === 0 && (
-                <tr><td className="td text-stone-500">No sales yet.</td></tr>
-              )}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <tbody className="divide-y divide-stone-100">
+                {data.topProducts.map((p: any) => (
+                  <tr key={p.title}>
+                    <td className="td">{p.title}</td>
+                    <td className="td whitespace-nowrap text-right font-medium">{p.sold} sold</td>
+                  </tr>
+                ))}
+                {data.topProducts.length === 0 && (
+                  <tr><td className="td text-stone-500">No sales yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

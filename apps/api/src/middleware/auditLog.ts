@@ -32,6 +32,8 @@ const ENTITY_NAMES: Record<string, string> = {
   uploads: 'Upload',
   email: 'EmailTemplate',
   diagnostics: 'Diagnostics',
+  // Purging old entries is itself an auditable act, so it lands here too.
+  activity: 'ActivityLog',
 };
 
 const ACTIONS: Record<string, string> = {

@@ -48,8 +48,8 @@ export function Coupons() {
       </form>
       {error && <p className="mb-4 rounded bg-red-50 p-2 text-sm text-red-600">{error}</p>}
 
-      <div className="card overflow-hidden">
-        <table className="w-full">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[38rem]">
           <thead className="border-b border-stone-200 bg-stone-50">
             <tr><th className="th">Code</th><th className="th">Discount</th><th className="th">Min Order</th><th className="th">Used</th><th className="th text-right"></th></tr>
           </thead>
