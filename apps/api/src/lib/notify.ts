@@ -200,6 +200,33 @@ export function notifyOrderLinks(
   void sendEmail(email, 'Your Aabroo orders', html);
 }
 
+/**
+ * Sends the password-reset link.
+ *
+ * Uses the same sendEmail() as everything else, so it needs no special handling
+ * before SMTP exists: with SMTP_HOST unset the link is printed to the server log
+ * (usable straight away), and the moment SMTP_HOST is set it starts being
+ * delivered for real — no code change.
+ */
+export function notifyPasswordReset(email: string, name: string, token: string): void {
+  const storefrontUrl = (process.env.STOREFRONT_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const link = `${storefrontUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;max-width:560px">
+      <h2>Reset your password</h2>
+      <p>Hi ${name.split(' ')[0]}, we received a request to reset the password on your Aabroo account.</p>
+      <p style="margin:22px 0">
+        <a href="${link}" style="display:inline-block;background:#B4530A;color:#ffffff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600">Choose a new password</a>
+      </p>
+      <p style="color:#666;font-size:13px">Or paste this into your browser:<br><span style="word-break:break-all">${link}</span></p>
+      <p style="color:#666;font-size:13px">This link expires in 1 hour and can only be used once.</p>
+      <p style="color:#666;font-size:13px">If you didn't request this, you can ignore this email — your password won't change.</p>
+    </div>`;
+
+  void sendEmail(email, 'Reset your Aabroo password', html);
+}
+
 export function notifyOrderStatus(order: OrderLike, to: Recipient): void {
   const label = STATUS_LABEL[order.status] ?? order.status;
   const html = `

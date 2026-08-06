@@ -112,7 +112,16 @@ function LoginInner() {
             />
           )}
           <div>
-            <label className="label">Password</label>
+            <div className="flex items-baseline justify-between">
+              <label className="label">Password</label>
+              {/* Only meaningful when logging in — there is nothing to recover
+                  while creating an account. */}
+              {mode === 'login' && (
+                <Link href="/forgot-password" className="text-xs text-accent hover:underline">
+                  Forgot password?
+                </Link>
+              )}
+            </div>
             <PasswordInput value={form.password} onChange={set('password')} required minLength={8} />
             {fieldErrs.password && <p className="mt-1 text-xs text-sale">{fieldErrs.password}</p>}
           </div>

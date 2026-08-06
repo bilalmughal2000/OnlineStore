@@ -19,6 +19,7 @@ import {
   ttlToMs,
 } from '../../lib/jwt';
 import { issueTokens, toAuthUser } from '../../lib/session';
+import { notifyPasswordReset } from '../../lib/notify';
 import { env } from '../../env';
 import { badRequest, unauthorized } from '../../lib/errors';
 import { z } from 'zod';
@@ -145,8 +146,9 @@ authRouter.post(
   }),
 );
 
-// Forgot/reset password — token generation is stubbed to console in dev.
-// Wire SendGrid/Resend here in Phase 3 to email the reset link.
+// Forgot/reset password. The link is emailed via lib/notify, which falls back
+// to logging it when SMTP_HOST is unset — so the flow is usable before SMTP is
+// configured and starts delivering for real once it is, with no code change.
 authRouter.post(
   '/forgot-password',
   authLimiter,
@@ -162,7 +164,9 @@ authRouter.post(
           expiresAt: new Date(Date.now() + 60 * 60 * 1000),
         },
       });
-      console.log(`[dev] Password reset token for ${user.email}: ${token}`);
+      // Never log the raw token: server logs are visible to anyone with access
+      // to the platform, and the token is enough to take over the account.
+      notifyPasswordReset(user.email, user.name, token);
     }
     // Always return ok to avoid leaking which emails exist.
     res.json({ ok: true });
@@ -179,14 +183,19 @@ authRouter.post(
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
       throw badRequest('Invalid or expired reset token');
     }
-    await prisma.user.update({
-      where: { id: stored.userId },
-      data: { passwordHash: await bcrypt.hash(req.body.password, 10) },
-    });
-    await prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: stored.userId },
+        data: { passwordHash: await bcrypt.hash(req.body.password, 10) },
+      }),
+      // Sign out everywhere. If the account was compromised, changing the
+      // password has to end the attacker's session too — otherwise their
+      // existing refresh token keeps working and the reset achieves nothing.
+      prisma.refreshToken.updateMany({
+        where: { userId: stored.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
     res.json({ ok: true });
   }),
 );
