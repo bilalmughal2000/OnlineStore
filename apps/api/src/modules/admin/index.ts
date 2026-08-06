@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireRole } from '../../middleware/auth';
 import { bumpCacheVersion } from '../../lib/cache';
 import { pingStorefrontRevalidate } from '../../lib/revalidate';
+import { sendTestEmail } from '../../lib/notify';
 import { adminDashboardRouter } from './dashboard.routes';
 import { adminCatalogRouter } from './catalog.routes';
 import { adminOrdersRouter } from './orders.routes';
@@ -54,6 +55,21 @@ adminRouter.get('/diagnostics', (_req, res) => {
     metaCapiConfigured: Boolean(process.env.META_PIXEL_ID && process.env.META_CAPI_ACCESS_TOKEN),
     whatsappConfigured: Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN),
   });
+});
+
+/**
+ * POST /admin/diagnostics/test-email — proves whether this server can actually
+ * send, and returns the SMTP result instead of hiding it in a log.
+ *
+ * Order emails are fire-and-forget by design (they must never block checkout),
+ * which means their failures are invisible to the caller. This does the same
+ * send synchronously so the reason for a failure comes straight back.
+ */
+adminRouter.post('/diagnostics/test-email', async (req, res) => {
+  const to = typeof req.body?.to === 'string' ? req.body.to : null;
+  if (!to) return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Provide "to"' } });
+  const result = await sendTestEmail(to);
+  res.status(result.ok ? 200 : 500).json(result);
 });
 
 adminRouter.use('/dashboard', adminDashboardRouter);

@@ -30,6 +30,13 @@ function getTransporter(): Transporter | null {
       port: Number(process.env.SMTP_PORT ?? 587),
       secure: process.env.SMTP_SECURE === 'true',
       auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      // Without these nodemailer waits indefinitely. Since sending is
+      // fire-and-forget, a host that silently drops outbound SMTP would leave
+      // the promise pending forever and produce no log line at all — the
+      // failure would be invisible rather than reported.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
   }
   return transporter;
@@ -41,26 +48,33 @@ function getTransporter(): Transporter | null {
  * makes "the email never arrived" impossible to diagnose from the logs.
  */
 async function sendEmail(to: string | null, subject: string, html: string): Promise<void> {
-  if (!to) {
-    console.warn(`[email] SKIPPED "${subject}" — no recipient address on the record`);
-    return;
-  }
-  const from = process.env.EMAIL_FROM ?? 'orders@store.pk';
-  const tx = getTransporter();
-  if (!tx) {
-    // Also surface any links so a developer can follow them from the console —
-    // guest order links carry a token and are otherwise only in a real inbox.
-    const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
-    console.log(`[email:dev] SMTP_HOST not set — logging instead of sending`);
-    console.log(`[email:dev] To: ${to} | ${subject}`);
-    for (const l of links) console.log(`[email:dev]   link: ${l}`);
-    return;
-  }
+  // The ENTIRE body is guarded. Callers invoke this inside
+  // `void Promise.allSettled([...])`, which discards rejections — so anything
+  // thrown outside a try (previously: building the transporter) disappeared
+  // with no log at all, leaving "the email never arrived" with zero evidence.
   try {
+    if (!to) {
+      console.warn(`[email] SKIPPED "${subject}" — no recipient address on the record`);
+      return;
+    }
+    const from = process.env.EMAIL_FROM ?? 'orders@store.pk';
+    const tx = getTransporter();
+    if (!tx) {
+      // Also surface any links so a developer can follow them from the console —
+      // guest order links carry a token and are otherwise only in a real inbox.
+      const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+      console.log(`[email:dev] SMTP_HOST not set — logging instead of sending`);
+      console.log(`[email:dev] To: ${to} | ${subject}`);
+      for (const l of links) console.log(`[email:dev]   link: ${l}`);
+      return;
+    }
     const info = await tx.sendMail({ from, to, subject, html });
     console.log(`[email] SENT "${subject}" -> ${to} (${info.messageId}) ${info.response ?? ''}`);
   } catch (err) {
-    console.error(`[email] FAILED "${subject}" -> ${to}: ${(err as Error).message}`);
+    console.error(
+      `[email] FAILED "${subject}" -> ${to}: ${(err as Error).message}`,
+      (err as NodeJS.ErrnoException).code ?? '',
+    );
   }
 }
 
@@ -250,4 +264,33 @@ export function notifyOrderStatus(order: OrderLike, to: Recipient): void {
     sendEmail(to.email, `Order ${order.orderNumber} is ${label}`, html),
     sendWhatsApp(to.phone, [to.name.split(' ')[0], order.orderNumber, label]),
   ]);
+}
+
+/**
+ * Sends a test email and RETURNS the outcome, rather than logging it.
+ *
+ * Used by the admin diagnostics endpoint. Everything else sends fire-and-forget
+ * so a mail problem can never break an order — but that also means failures are
+ * only visible in logs. This surfaces the actual SMTP error to the caller.
+ */
+export async function sendTestEmail(
+  to: string,
+): Promise<{ ok: boolean; messageId?: string; response?: string; error?: string; code?: string }> {
+  try {
+    const tx = getTransporter();
+    if (!tx) return { ok: false, error: 'SMTP_HOST is not set on this server' };
+    const info = await tx.sendMail({
+      from: process.env.EMAIL_FROM ?? 'orders@store.pk',
+      to,
+      subject: 'Aabroo — test email',
+      html: '<h2>It works</h2><p>Your store can send email. Sent from the admin diagnostics endpoint.</p>',
+    });
+    return { ok: true, messageId: info.messageId, response: info.response };
+  } catch (err) {
+    return {
+      ok: false,
+      error: (err as Error).message,
+      code: (err as NodeJS.ErrnoException).code,
+    };
+  }
 }
