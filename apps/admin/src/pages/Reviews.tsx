@@ -6,10 +6,18 @@ import { Select } from '@/components/Select';
 
 export function Reviews() {
   const [reviews, setReviews] = useState<any[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [filter, setFilter] = useState('');
 
   const load = () =>
-    api.get<{ reviews: any[] }>(`/admin/reviews${filter ? `?filter=${filter}` : ''}`).then((d) => setReviews(d.reviews));
+    Promise.all([
+      api.get<{ reviews: any[] }>(`/admin/reviews${filter ? `?filter=${filter}` : ''}`),
+      // Separate call so the badge reflects the whole queue, not the current view.
+      api.get<{ reviews: any[] }>('/admin/reviews?filter=hidden'),
+    ]).then(([shown, pending]) => {
+      setReviews(shown.reviews);
+      setPendingCount(pending.reviews.length);
+    });
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -28,19 +36,37 @@ export function Reviews() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h1 className="font-serif text-2xl font-bold">Reviews</h1>
         <Select
-          className="w-44"
+          className="w-56"
           value={filter}
           onChange={setFilter}
           options={[
             { value: '', label: 'All reviews' },
-            { value: 'visible', label: 'Visible' },
-            { value: 'hidden', label: 'Hidden' },
+            { value: 'visible', label: 'On the storefront' },
+            { value: 'hidden', label: 'Awaiting approval' },
           ]}
         />
       </div>
+
+      {/*
+        Reviews can now be held instead of publishing instantly, so the queue
+        needs to announce itself — an approval step nobody notices is just a
+        way to lose customer reviews.
+      */}
+      {filter !== 'hidden' && pendingCount > 0 && (
+        <button
+          onClick={() => setFilter('hidden')}
+          className="card mb-4 flex w-full items-center gap-2 p-3 text-left text-sm hover:bg-stone-50"
+        >
+          <span className="badge bg-amber-100 text-amber-700">{pendingCount}</span>
+          <span>
+            {pendingCount === 1 ? 'review is' : 'reviews are'} waiting for approval — they aren’t on
+            the storefront yet.
+          </span>
+        </button>
+      )}
 
       <div className="space-y-3">
         {reviews.map((r) => (
@@ -54,12 +80,12 @@ export function Reviews() {
                     ))}
                   </div>
                   <span className={`badge ${r.isApproved ? 'bg-green-100 text-green-700' : 'bg-stone-200 text-stone-600'}`}>
-                    {r.isApproved ? 'Visible' : 'Hidden'}
+                    {r.isApproved ? 'Visible' : 'Awaiting approval'}
                   </span>
                 </div>
                 {r.comment && <p className="mt-1.5 text-sm">{r.comment}</p>}
                 <p className="mt-1 text-xs text-stone-500">
-                  {r.user?.name} on <span className="font-medium">{r.product?.title}</span> · {formatDate(r.createdAt)}
+                  {r.user?.name ?? r.guestName ?? 'Guest'} on <span className="font-medium">{r.product?.title}</span> · {formatDate(r.createdAt)}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">

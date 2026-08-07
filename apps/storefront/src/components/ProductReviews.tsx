@@ -68,21 +68,32 @@ export function ProductReviews({
     try {
       // Public endpoint — no account required. A signed-in user's review is
       // upserted; a guest supplies the name to display alongside it.
-      const { review } = await clientApi.post<{ review: Review }>(`/products/${slug}/reviews`, {
-        rating,
-        comment: comment.trim() || undefined,
-        images: [],
-        ...(user ? {} : { guestName: guestName.trim() }),
-      });
-      // Optimistically show it (replace any existing review by the same user).
-      setReviews((prev) => [
-        { ...review, user: user ? { name: user.name } : null, guestName: user ? null : guestName.trim() },
-        ...prev.filter((r) => r.id !== review.id),
-      ]);
+      const { review, pending } = await clientApi.post<{ review: Review; pending?: boolean }>(
+        `/products/${slug}/reviews`,
+        {
+          rating,
+          comment: comment.trim() || undefined,
+          images: [],
+          ...(user ? {} : { guestName: guestName.trim() }),
+        },
+      );
+      // Only show it straight away if it was actually published. Adding a held
+      // review to the list would tell the customer it's live when it isn't —
+      // and it would vanish on the next load, which reads as a lost review.
+      if (!pending) {
+        setReviews((prev) => [
+          { ...review, user: user ? { name: user.name } : null, guestName: user ? null : guestName.trim() },
+          ...prev.filter((r) => r.id !== review.id),
+        ]);
+      }
       setGuestName('');
       setComment('');
       setOpen(false);
-      showToast('Thanks for your review!');
+      showToast(
+        pending
+          ? 'Thanks! Your review will appear once it has been checked.'
+          : 'Thanks for your review!',
+      );
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : 'Could not submit review');
     } finally {

@@ -6,7 +6,7 @@ import {
   PaymentMethod,
   PaymentStatus,
 } from '@store/database';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { checkoutSchema } from '@store/shared-types';
@@ -28,8 +28,44 @@ export const ordersRouter = Router();
 // account's history still requires a real session.
 ordersRouter.use(optionalAuth);
 
-function orderNumber(seq: number): string {
-  return `PK${String(Date.now()).slice(-8)}${String(seq % 1000).padStart(3, '0')}`;
+/**
+ * Human-readable order reference.
+ *
+ * The suffix used to be `(await tx.order.count()) + 1`, which is wrong twice
+ * over: two checkouts running at once read the same count and build the same
+ * number — and `orderNumber` is `@unique`, so the second shopper's payment
+ * failed with a conflict at the worst possible moment. It also made every
+ * checkout run a full COUNT(*) that slows down as the store grows.
+ *
+ * Random digits plus the millisecond make a clash rare; `createOrder()` below
+ * makes it harmless. This is a display reference only — orders are addressed
+ * internally by `id`, which is also what Pixel/CAPI dedup on.
+ */
+function orderNumber(): string {
+  return `PK${String(Date.now()).slice(-8)}${String(randomInt(1000)).padStart(3, '0')}`;
+}
+
+/** Unique-constraint violation. */
+const isUniqueClash = (e: unknown) =>
+  e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
+
+/**
+ * Runs the checkout transaction, retrying if the generated order number happens
+ * to collide with one already taken.
+ *
+ * The whole transaction is retried rather than just the insert: the stock
+ * decrements roll back with it, so each attempt starts from a clean slate and
+ * can't double-decrement. Anything that isn't a uniqueness clash propagates
+ * immediately — this must never mask a real failure as a retry.
+ */
+async function createOrder<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await prisma.$transaction(fn);
+    } catch (err) {
+      if (!isUniqueClash(err) || attempt >= 5) throw err;
+    }
+  }
 }
 
 // Capability key for a guest order. 32 random bytes — order ids travel in URLs
@@ -123,25 +159,30 @@ ordersRouter.post(
       }
     }
 
-    const order = await prisma.$transaction(async (tx) => {
-      // Re-check stock and decrement atomically.
+    const order = await createOrder(async (tx) => {
+      /*
+       * Claim the stock in a single conditional statement per line.
+       *
+       * Reading the stock and then decrementing it is two steps, and nothing
+       * holds the row in between: two shoppers buying the last item both read
+       * `stock: 1`, both pass the check, and both decrement — leaving -1 and an
+       * order that can't be fulfilled. `updateMany` with the quantity in the
+       * WHERE clause compiles to one `UPDATE … WHERE id = ? AND stock >= ?`,
+       * which InnoDB evaluates under a row lock, so exactly one of the two wins.
+       *
+       * A count of 0 means someone else got there first.
+       */
       for (const line of pricing.lines) {
-        const variant = await tx.productVariant.findUnique({ where: { id: line.variantId } });
-        if (!variant || variant.stock < line.quantity) {
-          throw badRequest(`"${line.productTitle}" is out of stock`);
-        }
-      }
-      for (const line of pricing.lines) {
-        await tx.productVariant.update({
-          where: { id: line.variantId },
+        const { count } = await tx.productVariant.updateMany({
+          where: { id: line.variantId, stock: { gte: line.quantity } },
           data: { stock: { decrement: line.quantity } },
         });
+        if (count === 0) throw badRequest(`"${line.productTitle}" is out of stock`);
       }
 
-      const count = await tx.order.count();
       const created = await tx.order.create({
         data: {
-          orderNumber: orderNumber(count + 1),
+          orderNumber: orderNumber(),
           userId,
           guestEmail,
           // Only guests get a token; signed-in users are authorised by session.

@@ -182,11 +182,40 @@ productsRouter.post(
     });
     if (!product) throw notFound('Product not found');
 
+    // "Verified" is derived, not stored — true when this reviewer has actually
+    // received the product. Guests have no account to trace, so never verified.
+    const verified = userId
+      ? Boolean(
+          await prisma.orderItem.findFirst({
+            where: { order: { userId, status: 'DELIVERED' }, variant: { productId: product.id } },
+          }),
+        )
+      : false;
+
+    /*
+     * Moderation. This endpoint takes reviews from anyone — no account, no
+     * purchase — which is what makes it useful and also what makes it a spam
+     * target. `isApproved` was hard-coded true, so the admin's hide/show
+     * controls only ever worked *after* the text was already public.
+     *
+     *   all      — publish immediately (what it used to do)
+     *   verified — publish only for someone who actually received the product
+     *   none     — everything waits for a human
+     *
+     * Pending reviews are excluded from the rating aggregate below, so a held
+     * review can't move a product's score or its structured data.
+     */
+    const reviewSetting = await prisma.setting.findUnique({ where: { key: 'reviews' } });
+    const mode = String(
+      (reviewSetting?.value as Record<string, unknown> | undefined)?.autoApprove ?? 'verified',
+    );
+    const isApproved = mode === 'all' ? true : mode === 'none' ? false : verified;
+
     const data = {
       rating: body.rating,
       comment: body.comment,
       images: body.images,
-      isApproved: true,
+      isApproved,
     };
 
     const review = userId
@@ -212,17 +241,9 @@ productsRouter.post(
       data: { ratingAvg: agg._avg.rating ?? 0, ratingCount: agg._count._all },
     });
 
-    // "Verified" is derived, not stored — true when this reviewer has actually
-    // received the product. Guests are matched on the email they checked out with.
-    const verified = userId
-      ? Boolean(
-          await prisma.orderItem.findFirst({
-            where: { order: { userId, status: 'DELIVERED' }, variant: { productId: product.id } },
-          }),
-        )
-      : false;
-
-    res.status(201).json({ review: serialize({ ...review, verified }) });
+    // `pending` lets the storefront say "we'll publish this once it's checked"
+    // instead of silently dropping the review the customer just wrote.
+    res.status(201).json({ review: serialize({ ...review, verified }), pending: !isApproved });
   }),
 );
 

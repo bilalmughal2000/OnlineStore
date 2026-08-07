@@ -66,6 +66,26 @@ export function Settings() {
         </Field>
       </Section>
 
+      {/* Reviews — anyone can post one, so this decides what goes live unseen. */}
+      <Section title="Reviews" onSave={() => save('reviews')} saved={saved === 'reviews'}>
+        <Field label="Publish new reviews">
+          <select
+            className="input"
+            value={settings.reviews?.autoApprove ?? 'verified'}
+            onChange={(e) => upd('reviews', 'autoApprove', e.target.value)}
+          >
+            <option value="verified">Only from customers who received the product</option>
+            <option value="all">Immediately, from anyone</option>
+            <option value="none">Never — I approve every review myself</option>
+          </select>
+          <p className="mt-1 text-xs text-stone-400">
+            Anyone can write a review, with or without an account. This controls which ones
+            appear on the storefront without you seeing them first. Held reviews wait under
+            Reviews → Pending, and never affect a product’s star rating until approved.
+          </p>
+        </Field>
+      </Section>
+
       {/* WhatsApp — a plain wa.me link, so there's no API, approval or cost. */}
       <Section title="WhatsApp Chat Button" onSave={() => save('whatsapp')} saved={saved === 'whatsapp'}>
         <label className="flex items-center gap-2 text-sm">
