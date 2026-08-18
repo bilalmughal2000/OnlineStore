@@ -19,6 +19,16 @@ import type { Announcement } from '@/lib/types';
  *     interrupting someone who is paying is the worst possible moment.
  *   · It waits a beat after load rather than slamming in over a half-drawn page,
  *     and closes on the backdrop, the X, or Escape.
+ *
+ * With more than one announcement live at once (an Eid sale *and* a shipping
+ * notice, say), priority is the admin's sortOrder and the two placements behave
+ * differently on purpose:
+ *   · The ribbon ROTATES through all of them, a few seconds each, so every
+ *     message gets seen. One live announcement means no rotation at all.
+ *   · The popup shows exactly ONE per visit — the highest-priority one not yet
+ *     dismissed. Dismissing it does not promote the next one into a second
+ *     popup; that one waits for a later visit. Back-to-back popups are the
+ *     fastest way to make a shopper leave.
  */
 
 const DISMISS_PREFIX = 'store_ann_dismissed:';
@@ -45,6 +55,12 @@ function markDismissed(a: Announcement, kind: 'modal' | 'ribbon') {
 
 /** Never interrupt these journeys. */
 const QUIET_PATHS = ['/cart', '/checkout', '/order-confirmation'];
+
+/** One popup per browsing session, however many announcements are live. */
+const SESSION_MODAL_KEY = 'store_ann_modal_shown';
+
+/** How long each message holds the ribbon before the next one slides in. */
+const ROTATE_MS = 6000;
 
 function useCountdown(endDate?: string | null): string | null {
   const [, tick] = useState(0);
@@ -94,33 +110,75 @@ export function Announcements({ announcements }: { announcements: Announcement[]
   // browser holding a dismissal shows.
   const [ready, setReady] = useState(false);
   const [modalFor, setModalFor] = useState<Announcement | null>(null);
-  const [ribbonFor, setRibbonFor] = useState<Announcement | null>(null);
+  // Every ribbon-eligible announcement the shopper hasn't dismissed, in priority
+  // order — the strip rotates through them.
+  const [ribbonQueue, setRibbonQueue] = useState<Announcement[]>([]);
+  const [ribbonIndex, setRibbonIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
 
-  const modalCandidate = useMemo(
-    () => announcements.find((a) => a.placement === 'modal' || a.placement === 'both') ?? null,
+  const forModal = useMemo(
+    () => announcements.filter((a) => a.placement === 'modal' || a.placement === 'both'),
     [announcements],
   );
-  const ribbonCandidate = useMemo(
-    () => announcements.find((a) => a.placement === 'ribbon' || a.placement === 'both') ?? null,
+  const forRibbon = useMemo(
+    () => announcements.filter((a) => a.placement === 'ribbon' || a.placement === 'both'),
     [announcements],
   );
 
+  // Dismissal state lives in localStorage, so the queue can only be built once
+  // mounted — before that the server and the browser would disagree.
   useEffect(() => {
-    if (ribbonCandidate && !isDismissed(ribbonCandidate, 'ribbon')) setRibbonFor(ribbonCandidate);
+    setRibbonQueue(forRibbon.filter((a) => !isDismissed(a, 'ribbon')));
+    setRibbonIndex(0);
     setReady(true);
-  }, [ribbonCandidate]);
+  }, [forRibbon]);
+
+  const ribbonFor = ribbonQueue[ribbonIndex] ?? null;
+
+  // Rotate the strip. A single message doesn't rotate, and hovering holds the
+  // current one so it can actually be read and clicked.
+  useEffect(() => {
+    if (ribbonQueue.length < 2 || paused) return;
+    const t = setInterval(() => setRibbonIndex((i) => (i + 1) % ribbonQueue.length), ROTATE_MS);
+    return () => clearInterval(t);
+  }, [ribbonQueue.length, paused]);
 
   useEffect(() => {
-    if (quiet || !modalCandidate || isDismissed(modalCandidate, 'modal')) return;
+    if (quiet) return;
+    // One popup per visit: the top-priority announcement still undismissed.
+    // Without the session guard, dismissing one would immediately promote the
+    // next into a second popup.
+    try {
+      if (sessionStorage.getItem(SESSION_MODAL_KEY) === '1') return;
+    } catch {
+      /* private mode — fall through, the per-announcement dismissal still applies */
+    }
+    const next = forModal.find((a) => !isDismissed(a, 'modal'));
+    if (!next) return;
+
     // Let the page paint first.
-    const t = setTimeout(() => setModalFor(modalCandidate), 1400);
+    const t = setTimeout(() => {
+      setModalFor(next);
+      try {
+        sessionStorage.setItem(SESSION_MODAL_KEY, '1');
+      } catch {
+        /* ignore */
+      }
+    }, 1400);
     return () => clearTimeout(t);
-  }, [quiet, modalCandidate]);
+  }, [quiet, forModal]);
 
   const closeModal = useCallback(() => {
     if (modalFor) markDismissed(modalFor, 'modal');
     setModalFor(null);
   }, [modalFor]);
+
+  /** X on the strip clears every message currently in rotation, not just this one. */
+  const dismissRibbon = useCallback(() => {
+    ribbonQueue.forEach((a) => markDismissed(a, 'ribbon'));
+    setRibbonQueue([]);
+    setRibbonIndex(0);
+  }, [ribbonQueue]);
 
   useEffect(() => {
     if (!modalFor) return;
@@ -136,10 +194,16 @@ export function Announcements({ announcements }: { announcements: Announcement[]
 
   return (
     <>
-      {/* ── Ribbon: quiet, persistent, one line ── */}
+      {/* ── Ribbon: quiet, persistent, one line, rotating when several are live ── */}
       {ribbonFor && !quiet && (
-        <div className="relative z-30 border-b border-black/5 bg-gradient-to-r from-accent/[0.12] via-accent/[0.07] to-accent/[0.12]">
-          <div className="container-x flex items-center gap-3 py-2">
+        <div
+          className="relative z-30 border-b border-black/5 bg-gradient-to-r from-accent/[0.12] via-accent/[0.07] to-accent/[0.12]"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          aria-live="polite"
+        >
+          {/* keyed so each message fades in as it takes its turn */}
+          <div key={ribbonFor.id} className="container-x ribbon-in flex items-center gap-3 py-2">
             <Sparkles size={14} className="hidden shrink-0 text-accent sm:block" />
             {ribbonFor.badge && (
               <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
@@ -164,12 +228,27 @@ export function Announcements({ announcements }: { announcements: Announcement[]
                 <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
               </Link>
             )}
+            {/* Dots: which of several messages this is, and a way to jump. */}
+            {ribbonQueue.length > 1 && (
+              <span className="hidden shrink-0 items-center gap-1 sm:flex">
+                {ribbonQueue.map((a, i) => (
+                  <button
+                    key={a.id}
+                    onClick={() => setRibbonIndex(i)}
+                    aria-label={`Show announcement ${i + 1} of ${ribbonQueue.length}`}
+                    aria-current={i === ribbonIndex}
+                    className={`h-1.5 rounded-full transition-all ${
+                      i === ribbonIndex ? 'w-4 bg-accent' : 'w-1.5 bg-accent/30 hover:bg-accent/60'
+                    }`}
+                  />
+                ))}
+              </span>
+            )}
             <button
-              onClick={() => {
-                markDismissed(ribbonFor, 'ribbon');
-                setRibbonFor(null);
-              }}
-              aria-label="Dismiss announcement"
+              onClick={dismissRibbon}
+              aria-label={
+                ribbonQueue.length > 1 ? `Dismiss all ${ribbonQueue.length} announcements` : 'Dismiss announcement'
+              }
               className="shrink-0 rounded-full p-1 text-ink/40 transition-colors hover:bg-black/5 hover:text-ink"
             >
               <X size={14} />

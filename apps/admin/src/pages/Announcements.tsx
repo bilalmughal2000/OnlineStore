@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff, Megaphone, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, Megaphone, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
 import { announcementPlacements } from '@store/shared-types';
 import { api, ApiError, uploadImage } from '@/lib/api';
 import { Select } from '@/components/Select';
@@ -84,6 +84,9 @@ export function Announcements() {
     load();
   }, []);
 
+  /** How many a shopper would actually see right now (same rule as the storefront). */
+  const liveCount = items.filter((a) => status(a).label === 'Live').length;
+
   const openCreate = () => {
     setForm(empty);
     setError(null);
@@ -154,6 +157,20 @@ export function Announcements() {
     load();
   };
 
+  /* Order here is priority: the first live one is what pops up, and the ribbon
+     rotates through the rest in this order. */
+  const move = async (i: number, dir: -1 | 1) => {
+    const next = [...items];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    setItems(next);
+    await api.post('/admin/announcements/reorder', { order: next.map((a) => a.id) });
+    // Re-read rather than trusting the optimistic order: two quick clicks would
+    // otherwise leave the list showing something the server never stored.
+    load();
+  };
+
   const onFile = async (file?: File) => {
     if (!file) return;
     setUploading(true);
@@ -174,19 +191,48 @@ export function Announcements() {
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <p className="max-w-xl text-sm text-stone-500">
           Event sales and store-wide notices — Eid, 14 August, a flash sale. Set the dates and it appears
-          and retires on its own. Shoppers see a slim ribbon under the header, and the popup shows once
-          each (never on the cart or checkout).
+          and retires on its own. Shoppers see a slim ribbon under the header; the popup shows at most one
+          per visit and never on the cart or checkout.
         </p>
         <button onClick={openCreate} className="btn-primary shrink-0">
           <Plus size={16} /> New Announcement
         </button>
       </div>
 
+      {liveCount > 1 && (
+        <div className="card mb-4 border-l-4 border-l-amber-400 p-4 text-sm">
+          <p className="font-medium">{liveCount} announcements are live at once.</p>
+          <p className="mt-1 text-stone-500">
+            The ribbon rotates through all of them (about 6 seconds each). The popup only ever shows{' '}
+            <strong>one per visit</strong> — the highest one in this list that the shopper hasn't
+            dismissed yet — so nobody gets two popups in a row. Use the arrows to set which comes first.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-3">
-        {items.map((a) => {
+        {items.map((a, i) => {
           const s = status(a);
           return (
             <div key={a.id} className="card flex items-center gap-4 p-3">
+              <div className="flex flex-col">
+                <button
+                  onClick={() => move(i, -1)}
+                  aria-label="Move up (higher priority)"
+                  className="text-stone-400 hover:text-brand disabled:opacity-30"
+                  disabled={i === 0}
+                >
+                  <ArrowUp size={14} />
+                </button>
+                <button
+                  onClick={() => move(i, 1)}
+                  aria-label="Move down (lower priority)"
+                  className="text-stone-400 hover:text-brand disabled:opacity-30"
+                  disabled={i === items.length - 1}
+                >
+                  <ArrowDown size={14} />
+                </button>
+              </div>
               {a.imageUrl ? (
                 <img src={a.imageUrl} alt="" className="h-14 w-20 shrink-0 rounded object-cover" />
               ) : (

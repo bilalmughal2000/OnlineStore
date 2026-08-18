@@ -303,6 +303,21 @@ adminMarketingRouter.put(
   }),
 );
 
+// Priority order. Decides which announcement pops up first when several are
+// live, and the order the ribbon rotates through them.
+adminMarketingRouter.post(
+  '/announcements/reorder',
+  validate(z.object({ order: z.array(z.string()) })),
+  asyncHandler(async (req, res) => {
+    await prisma.$transaction(
+      req.body.order.map((id: string, i: number) =>
+        prisma.announcement.update({ where: { id }, data: { sortOrder: i } }),
+      ),
+    );
+    res.json({ ok: true });
+  }),
+);
+
 adminMarketingRouter.delete(
   '/announcements/:id',
   asyncHandler(async (req, res) => {
