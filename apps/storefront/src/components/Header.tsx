@@ -1,23 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
+import { SearchBox } from '@/components/SearchBox';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi } from '@/lib/client-api';
+import { CategoryNav, MobileCategoryNav } from '@/components/CategoryNav';
+import type { MenuNode } from '@/lib/types';
 
-interface MenuLink {
-  id: string;
-  label: string;
-  url: string;
-}
-
-export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; storeName: string; promoText?: string }) {
+export function Header({ menu, storeName, promoText }: { menu: MenuNode[]; storeName: string; promoText?: string }) {
   const { cartCount, user, wishlist } = useStore();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
+  // Phones get a full-screen search sheet instead of a dropdown under a tiny input.
+  const [searchOpen, setSearchOpen] = useState(false);
+  // The drawer is portalled to <body>: this header uses backdrop-blur, and a
+  // backdrop-filter makes an element the containing block for its fixed-position
+  // descendants — inside it, the full-screen drawer collapsed to the header's
+  // own 64px box.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   // Refresh the promo text fresh on the client so admin edits show immediately,
   // regardless of page (ISR/CDN) caching. Starts from the SSR value.
   const [promo, setPromo] = useState<string | undefined>(promoText);
@@ -28,13 +31,8 @@ export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; store
       .catch(() => {});
   }, []);
 
-  const submitSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (q.trim()) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
-  };
-
   return (
-    <header className="z-40 shrink-0 border-b border-black/5 bg-cream/95 backdrop-blur">
+    <header className="sticky top-0 z-40 shrink-0 border-b border-black/5 bg-cream/95 backdrop-blur lg:relative">
       {promo && <div className="bg-ink py-2 text-center text-xs text-white">{promo}</div>}
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Menu">
@@ -45,26 +43,19 @@ export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; store
           {storeName}
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex">
-          {menu.map((m) => (
-            <Link key={m.id} href={m.url} className="text-sm font-medium hover:text-accent">
-              {m.label}
-            </Link>
-          ))}
-        </nav>
+        <CategoryNav menu={menu} />
 
         <div className="flex items-center gap-3">
-          <form onSubmit={submitSearch} className="hidden items-center md:flex">
-            <div className="relative">
-              <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink/40" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search products..."
-                className="w-48 rounded-full border border-ink/15 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-accent"
-              />
-            </div>
-          </form>
+          <div className="hidden md:flex">
+            <SearchBox menu={menu} />
+          </div>
+          <button
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+            className="hover:text-accent md:hidden"
+          >
+            <Search />
+          </button>
           {/* Always visible: the wishlist works without an account, so it needs
               a way in that isn't behind the account area. */}
           <Link href="/wishlist" aria-label="Wishlist" className="relative hover:text-accent">
@@ -89,39 +80,43 @@ export function Header({ menu, storeName, promoText }: { menu: MenuLink[]; store
         </div>
       </div>
 
+      {/* Mobile search sheet */}
+      {searchOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSearchOpen(false)} />
+          <div className="sheet-down absolute inset-x-0 top-0 max-h-[92dvh] bg-cream shadow-xl">
+            <SearchBox menu={menu} variant="sheet" onClose={() => setSearchOpen(false)} />
+          </div>
+        </div>,
+        document.body,
+      )}
+
       {/* Mobile drawer */}
-      {open && (
+      {open && mounted && createPortal(
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-72 bg-cream p-5">
+          {/* Scrolls, because an expanded category tree can be taller than the screen. */}
+          <div className="app-scroll absolute left-0 top-0 h-full w-72 bg-cream p-5">
             <div className="mb-6 flex items-center justify-between">
               <span className="font-serif text-xl font-bold">{storeName}</span>
               <button onClick={() => setOpen(false)} aria-label="Close">
                 <X />
               </button>
             </div>
-            <form onSubmit={submitSearch} className="mb-4">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search..."
-                className="input"
-              />
-            </form>
-            <nav className="flex flex-col gap-1">
-              {menu.map((m) => (
-                <Link
-                  key={m.id}
-                  href={m.url}
-                  onClick={() => setOpen(false)}
-                  className="rounded px-2 py-2.5 font-medium hover:bg-black/5"
-                >
-                  {m.label}
-                </Link>
-              ))}
-            </nav>
+            <button
+              onClick={() => {
+                setOpen(false);
+                setSearchOpen(true);
+              }}
+              className="mb-4 flex w-full items-center gap-2 rounded-full border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink/45"
+            >
+              <Search size={16} />
+              Search products…
+            </button>
+            <MobileCategoryNav menu={menu} onNavigate={() => setOpen(false)} />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </header>
   );

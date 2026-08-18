@@ -50,6 +50,14 @@ body {
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;
   }
+  /* Pill used for browse/suggestion shortcuts (search panel, empty states). */
+  .chip {
+    @apply rounded-full border border-ink/15 bg-white px-3 py-1.5 text-[13px] font-medium text-ink/75 transition-colors hover:border-accent hover:text-accent;
+  }
+  /* Small section label inside the search panel. */
+  .search-head {
+    @apply px-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-ink/40;
+  }
 }
 
 /* Themed dropdown chevron for every <select> (both .select and .input selects). */
@@ -71,32 +79,105 @@ select.input option {
   background: #fff;
 }
 
-/* App-shell scroll region: only the middle scrolls; header/footer stay fixed.
-   Themed, slim scrollbar that matches the accent colour. */
+/* Themed, slim scrollbar for any scroll region (sidebar tree, drawer, sheet). */
 .app-scroll {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--accent) / 0.55) transparent; /* accent thumb, clear track */
-  scroll-behavior: smooth;
   overscroll-behavior: contain;
 }
-.app-scroll::-webkit-scrollbar {
+
+/* App-shell main region.
+   Desktop keeps the fixed-chrome layout (only the middle scrolls). On phones and
+   tablets the document scrolls normally instead: pinning the footer there left
+   the product grid peering through a ~150px window, and it also broke the
+   browser's own address-bar collapse and pull-to-refresh. */
+.app-main {
+  overflow-x: hidden;
+}
+@media (min-width: 1024px) {
+  .app-main {
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--accent) / 0.55) transparent;
+    overscroll-behavior: contain;
+  }
+}
+.app-scroll::-webkit-scrollbar,
+.app-main::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
-.app-scroll::-webkit-scrollbar-track {
+.app-scroll::-webkit-scrollbar-track,
+.app-main::-webkit-scrollbar-track {
   background: transparent;
 }
-.app-scroll::-webkit-scrollbar-thumb {
+.app-scroll::-webkit-scrollbar-thumb,
+.app-main::-webkit-scrollbar-thumb {
   background: rgb(var(--accent) / 0.5);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-.app-scroll::-webkit-scrollbar-thumb:hover {
+.app-scroll::-webkit-scrollbar-thumb:hover,
+.app-main::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--accent-dark) / 0.85);
   background-clip: content-box;
+}
+
+/* Nav dropdown entrance — a short fade + lift so the mega menu doesn't pop. */
+@keyframes menuPop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.menu-pop {
+  animation: menuPop 0.16s ease-out;
+}
+
+/* Mobile bottom sheet (category tree on listing pages). */
+@keyframes sheetUp {
+  from {
+    transform: translateY(12%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.sheet-up {
+  animation: sheetUp 0.2s ease-out;
+}
+
+/* Search sheet, which drops from under the header. */
+@keyframes sheetDown {
+  from {
+    transform: translateY(-8%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.sheet-down {
+  animation: sheetDown 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-pop,
+  .sheet-up,
+  .sheet-down {
+    animation: none;
+  }
 }
 
 /* Skeleton shimmer */

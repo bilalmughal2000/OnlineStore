@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { Analytics } from '@/components/Analytics';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { SITE_URL } from '@/lib/site';
-import { THEMES, DEFAULT_THEME, type ThemePalette } from '@store/shared-types';
+import { THEMES, DEFAULT_THEME, type SocialSettings, type ThemePalette } from '@store/shared-types';
 
 const TITLE = 'Aabroo — Modern Pakistani Fashion';
 const DESCRIPTION =
@@ -60,9 +60,21 @@ async function getShell() {
       themeKey: (settings?.store?.theme as string) ?? DEFAULT_THEME,
       customTheme: settings?.store?.customTheme as ThemePalette | undefined,
       whatsapp: (settings?.whatsapp ?? {}) as { enabled?: boolean; phone?: string; greeting?: string },
+      // Social links are admin-managed and render in the footer, so they travel
+      // with the rest of the shell data.
+      social: (settings?.social ?? {}) as SocialSettings,
     };
   } catch {
-    return { header: [], footer: [], storeName: 'Aabroo', promoText: '', themeKey: DEFAULT_THEME, customTheme: undefined, whatsapp: {} };
+    return {
+      header: [],
+      footer: [],
+      storeName: 'Aabroo',
+      promoText: '',
+      themeKey: DEFAULT_THEME,
+      customTheme: undefined,
+      whatsapp: {},
+      social: {},
+    };
   }
 }
 
@@ -110,7 +122,7 @@ function siteJsonLd(storeName: string) {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { header, footer, storeName, promoText, themeKey, customTheme, whatsapp } = await getShell();
+  const { header, footer, storeName, promoText, themeKey, customTheme, whatsapp, social } = await getShell();
   return (
     <html lang="en" style={themeVars(themeKey, customTheme)}>
       <head>
@@ -122,15 +134,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd(storeName)) }}
         />
       </head>
-      <body className="flex h-dvh flex-col overflow-hidden">
+      {/* Desktop keeps the app-shell feel — sticky header, one scrolling region
+          below it. Mobile scrolls the document itself (see .app-main). The footer
+          scrolls with the content in both: it carries real navigation now, and a
+          pinned one would sit on a third of a laptop screen forever. */}
+      <body className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
         <StoreProvider>
           <Header menu={header} storeName={storeName} promoText={promoText} />
-          {/* Only this middle region scrolls; header + footer stay fixed. */}
-          <main className="app-scroll flex-1">
-            <PageBack />
-            {children}
+          <main className="app-main flex flex-1 flex-col">
+            <div className="flex-1">
+              <PageBack />
+              {children}
+            </div>
+            <Footer links={footer} categories={header} storeName={storeName} social={social} />
           </main>
-          <Footer links={footer} storeName={storeName} />
         </StoreProvider>
         {/* Free click-to-chat — no API, no approval. Hidden until a number
             is set in admin so it can never link somewhere dead. */}

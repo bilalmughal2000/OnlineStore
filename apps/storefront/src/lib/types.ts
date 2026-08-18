@@ -45,7 +45,21 @@ export interface Category {
   slug: string;
   description?: string | null;
   image?: string | null;
+  parentId?: string | null;
+  /** Products in this category and every category nested below it. */
+  productCount?: number;
   children?: Category[];
+}
+
+/** A header nav entry — a top-level category with its subcategories, any depth. */
+export interface MenuNode {
+  id: string;
+  label: string;
+  url: string;
+  slug?: string;
+  image?: string | null;
+  productCount?: number;
+  children?: MenuNode[];
 }
 
 export interface Banner {

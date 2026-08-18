@@ -9,17 +9,22 @@ async function get<T>(path: string, revalidate = 60): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-import type { Banner, Category, HomepageSection, Product, Review, Testimonial } from './types';
+import type { Banner, Category, HomepageSection, MenuNode, Product, Review, Testimonial } from './types';
 
 export const api = {
   homepage: () =>
     get<{ banners: Banner[]; sections: HomepageSection[]; categories: Category[]; testimonials: Testimonial[] }>(
       '/content/homepage',
     ),
-  menu: () => get<{ header: any[]; footer: any[] }>('/content/menu'),
+  menu: () => get<{ header: MenuNode[]; footer: any[] }>('/content/menu'),
   settings: () => get<{ settings: Record<string, any> }>('/content/settings'),
   categories: () => get<{ categories: Category[] }>('/categories'),
-  category: (slug: string) => get<{ category: Category & { parent?: Category } }>(`/categories/${slug}`),
+  // `ancestors` is the breadcrumb trail (root first); `branch` is the top-level
+  // category with its whole subtree, which the listing sidebar renders.
+  category: (slug: string) =>
+    get<{ category: Category & { parent?: Category | null }; ancestors: Category[]; branch: Category }>(
+      `/categories/${slug}`,
+    ),
   products: (query: string) =>
     get<{ items: Product[]; total: number; page: number; totalPages: number }>(
       `/products?${query}`,

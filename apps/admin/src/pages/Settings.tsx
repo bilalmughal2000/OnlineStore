@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_THEME } from '@store/shared-types';
+import { DEFAULT_THEME, SOCIAL_NETWORKS } from '@store/shared-types';
 import { api } from '@/lib/api';
 import { ThemePicker } from '@/components/ThemePicker';
 
@@ -18,6 +18,14 @@ export function Settings() {
 
   const upd = (key: string, field: string, value: unknown) =>
     setSettings((s) => ({ ...s, [key]: { ...s[key], [field]: value } }));
+
+  /* Social rows are `{ url, enabled }` per network, so they patch one level
+     deeper than the flat fields above. */
+  const updSocial = (id: string, patch: { url?: string; enabled?: boolean }) =>
+    setSettings((s) => ({
+      ...s,
+      social: { ...s.social, [id]: { ...s.social?.[id], ...patch } },
+    }));
 
   return (
     <div className="max-w-2xl">
@@ -120,6 +128,49 @@ export function Settings() {
             name is appended automatically, so you can see what they were looking at.
           </p>
         </Field>
+      </Section>
+
+      {/* Social links — drive the footer icons. Each row is independently
+          switchable, so a network can be kept on file without being shown. */}
+      <Section title="Social Links" onSave={() => save('social')} saved={saved === 'social'}>
+        <p className="-mt-1 text-xs text-stone-400">
+          Fill in the accounts you use and tick “Show” for the ones that should appear in the
+          storefront footer. Unticked or empty ones are hidden — no icon is rendered.
+        </p>
+        <div className="space-y-3">
+          {SOCIAL_NETWORKS.map((n) => {
+            const row = settings.social?.[n.id] ?? {};
+            const needsUrl = !!row.enabled && !row.url?.trim();
+            return (
+              <div key={n.id}>
+                <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
+                  <span className="w-28 shrink-0 text-sm font-medium">{n.label}</span>
+                  <input
+                    className={`input min-w-0 flex-1 ${needsUrl ? 'border-amber-400' : ''}`}
+                    placeholder={n.hint}
+                    value={row.url ?? ''}
+                    onChange={(e) => updSocial(n.id, { url: e.target.value })}
+                  />
+                  <label className="flex shrink-0 items-center gap-1.5 text-sm text-stone-600">
+                    <input
+                      type="checkbox"
+                      checked={!!row.enabled}
+                      onChange={(e) => updSocial(n.id, { enabled: e.target.checked })}
+                    />
+                    Show
+                  </label>
+                </div>
+                {/* Ticked with an empty URL renders no icon — say so rather than
+                    leaving the admin wondering where it went. */}
+                {needsUrl && (
+                  <p className="mt-1 text-xs text-amber-600 sm:ml-[7.75rem]">
+                    Add a link, or untick “Show” — an empty one stays hidden.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </Section>
     </div>
   );

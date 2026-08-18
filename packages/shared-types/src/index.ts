@@ -306,6 +306,32 @@ export const THEMES: Record<string, { name: string; colors: ThemePalette }> = {
 
 export const DEFAULT_THEME = 'terracotta';
 
+/*
+ * Social links shown in the storefront footer, managed under admin → Settings.
+ * Shared so the admin form and the footer can never drift apart: add a network
+ * here and it appears in both (the footer maps the id to an icon).
+ */
+export const SOCIAL_NETWORKS = [
+  { id: 'facebook', label: 'Facebook', hint: 'https://facebook.com/yourpage' },
+  { id: 'instagram', label: 'Instagram', hint: 'https://instagram.com/yourbrand' },
+  { id: 'tiktok', label: 'TikTok', hint: 'https://tiktok.com/@yourbrand' },
+  { id: 'youtube', label: 'YouTube', hint: 'https://youtube.com/@yourchannel' },
+  { id: 'twitter', label: 'X (Twitter)', hint: 'https://x.com/yourbrand' },
+  { id: 'linkedin', label: 'LinkedIn', hint: 'https://linkedin.com/company/yourbrand' },
+  { id: 'whatsapp', label: 'WhatsApp', hint: '923001234567 (or a wa.me link)' },
+  { id: 'email', label: 'Email', hint: 'hello@yourstore.pk' },
+] as const;
+
+export type SocialNetworkId = (typeof SOCIAL_NETWORKS)[number]['id'];
+
+/** One row of the social settings: where it points, and whether it shows. */
+export interface SocialLink {
+  url?: string;
+  enabled?: boolean;
+}
+
+export type SocialSettings = Partial<Record<SocialNetworkId, SocialLink>>;
+
 export interface Paginated<T> {
   items: T[];
   total: number;

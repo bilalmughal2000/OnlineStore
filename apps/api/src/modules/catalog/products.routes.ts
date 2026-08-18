@@ -8,6 +8,7 @@ import { reviewLimiter } from '../../middleware/rateLimit';
 import { serialize } from '../../lib/serialize';
 import { cached } from '../../lib/cache';
 import { badRequest, notFound } from '../../lib/errors';
+import { branchIdsForSlug, categoryIndex } from './category-tree';
 
 export const productsRouter = Router();
 
@@ -31,11 +32,11 @@ productsRouter.get(
       // "Sale" is a virtual category: any product with a sale price, from any category.
       and.push({ salePrice: { not: null } });
     } else if (q.category) {
-      and.push({
-        category: {
-          OR: [{ slug: q.category }, { parent: { slug: q.category } }],
-        },
-      });
+      // A category listing includes everything nested under it, to any depth:
+      // "Women" shows the products of Women → Unstitched → Lawn as well. An
+      // unknown slug matches nothing rather than falling back to everything.
+      const ids = await branchIdsForSlug(q.category);
+      and.push({ categoryId: { in: ids?.length ? ids : ['__none__'] } });
     }
     if (q.search) {
       and.push({
@@ -107,31 +108,50 @@ productsRouter.get(
   }),
 );
 
-// GET /products/search?q= — lightweight autocomplete
+// GET /products/search?q= — autocomplete for the storefront's search box.
+//
+// Returns matching products *and* matching categories: typing "kurti" should be
+// able to offer the whole Kurtis category, not just individual items.
 productsRouter.get(
   '/search',
   asyncHandler(async (req, res) => {
     const term = String(req.query.q ?? '').trim();
-    if (term.length < 2) return res.json({ items: [] });
-    const items = await prisma.product.findMany({
-      where: {
-        status: ProductStatus.PUBLISHED,
-        OR: [
-          { title: { contains: term } },
-          { brand: { contains: term } },
-        ],
-      },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        basePrice: true,
-        salePrice: true,
-        images: { where: { isPrimary: true }, take: 1, select: { url: true } },
-      },
-      take: 8,
-    });
-    res.json({ items: serialize(items) });
+    if (term.length < 2) return res.json({ items: [], categories: [] });
+
+    const [items, { bySlug }] = await Promise.all([
+      prisma.product.findMany({
+        where: {
+          status: ProductStatus.PUBLISHED,
+          OR: [
+            { title: { contains: term } },
+            { brand: { contains: term } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          basePrice: true,
+          salePrice: true,
+          brand: true,
+          category: { select: { name: true, slug: true } },
+          images: { where: { isPrimary: true }, take: 1, select: { url: true } },
+        },
+        take: 6,
+      }),
+      categoryIndex(),
+    ]);
+
+    const needle = term.toLowerCase();
+    const categories = [...bySlug.values()]
+      .filter((c) => c.name.toLowerCase().includes(needle))
+      // Fuller branches first — a shopper searching "kurti" wants the category
+      // with stock in it, not an empty one.
+      .sort((a, b) => b.productCount - a.productCount)
+      .slice(0, 5)
+      .map((c) => ({ id: c.id, name: c.name, slug: c.slug, productCount: c.productCount }));
+
+    res.json({ items: serialize(items), categories });
   }),
 );
 

@@ -5,7 +5,7 @@ import { productInputSchema, categoryInputSchema, productQuerySchema } from '@st
 import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { serialize } from '../../lib/serialize';
-import { notFound } from '../../lib/errors';
+import { badRequest, notFound } from '../../lib/errors';
 import { uniqueSlug } from './helpers';
 import { auditMeta } from '../../middleware/auditLog';
 
@@ -255,10 +255,28 @@ adminCatalogRouter.post(
   }),
 );
 
+/*
+ * Re-parenting guard. Pointing a category at its own descendant would create a
+ * cycle, and a cycle has no root — the whole loop would drop out of the
+ * storefront's category tree (and its products with it). Cheaper to refuse.
+ */
+async function assertNoCycle(id: string, parentId: string | null | undefined): Promise<void> {
+  if (!parentId) return;
+  if (parentId === id) throw badRequest('A category cannot be its own parent');
+  const rows = await prisma.category.findMany({ select: { id: true, parentId: true } });
+  const parentOf = new Map(rows.map((r) => [r.id, r.parentId]));
+  let cursor: string | null | undefined = parentId;
+  while (cursor) {
+    if (cursor === id) throw badRequest('Cannot move a category inside one of its own subcategories');
+    cursor = parentOf.get(cursor) ?? null;
+  }
+}
+
 adminCatalogRouter.put(
   '/categories/:id',
   validate(categoryInputSchema.partial()),
   asyncHandler(async (req, res) => {
+    if ('parentId' in req.body) await assertNoCycle(req.params.id, req.body.parentId);
     const category = await prisma.category.update({ where: { id: req.params.id }, data: req.body });
     res.json({ category: serialize(category) });
   }),

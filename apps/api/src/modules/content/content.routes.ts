@@ -4,6 +4,7 @@ import { asyncHandler } from '../../lib/asyncHandler';
 import { serialize } from '../../lib/serialize';
 import { cached } from '../../lib/cache';
 import { notFound } from '../../lib/errors';
+import { categoryIndex, type CategoryNode } from '../catalog/category-tree';
 
 export const contentRouter = Router();
 
@@ -87,29 +88,38 @@ contentRouter.get(
   }),
 );
 
-// GET /content/menu — header nav is driven by top-level categories (so adding a
+// GET /content/menu — header nav is driven by the category tree (so adding a
 // category in the admin shows it in the navbar automatically); footer uses the
 // managed footer menu items (static pages).
+//
+// Each header item carries its nested children to any depth, which is what lets
+// the navbar open a dropdown for a parent category instead of hiding whatever
+// sits underneath it.
 contentRouter.get(
   '/menu',
   asyncHandler(async (_req, res) => {
-    const data = await cached('content:menu', 60, async () => {
-      const [categories, footerItems] = await Promise.all([
-        prisma.category.findMany({
-          where: { parentId: null, isActive: true },
-          orderBy: { sortOrder: 'asc' },
-        }),
-        prisma.menuItem.findMany({
+    const [{ roots }, footerData] = await Promise.all([
+      categoryIndex(),
+      cached('content:menu:footer', 60, async () => {
+        const footerItems = await prisma.menuItem.findMany({
           where: { isActive: true, location: 'footer', parentId: null },
           orderBy: { sortOrder: 'asc' },
-        }),
-      ]);
-      return {
-        header: categories.map((c) => ({ id: c.id, label: c.name, url: `/category/${c.slug}` })),
-        footer: footerItems,
-      };
+        });
+        return serialize(footerItems);
+      }),
+    ]);
+
+    const toMenu = (c: CategoryNode): Record<string, unknown> => ({
+      id: c.id,
+      label: c.name,
+      url: `/category/${c.slug}`,
+      slug: c.slug,
+      image: c.image,
+      productCount: c.productCount,
+      children: c.children.map(toMenu),
     });
-    res.json(data);
+
+    res.json({ header: roots.map(toMenu), footer: footerData });
   }),
 );
 
@@ -160,7 +170,7 @@ contentRouter.get(
   asyncHandler(async (_req, res) => {
     const data = await cached('content:settings', 300, async () => {
       const rows = await prisma.setting.findMany({
-        where: { key: { in: ['store', 'shipping', 'payments', 'whatsapp'] } },
+        where: { key: { in: ['store', 'shipping', 'payments', 'whatsapp', 'social'] } },
       });
       // Never expose which payment credentials exist — only enabled flags.
       return { settings: Object.fromEntries(rows.map((r) => [r.key, r.value])) };

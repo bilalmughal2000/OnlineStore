@@ -81,39 +81,64 @@ async function main() {
   });
 
   // ── Categories ───────────────────────────────────────────────
-  const catData = [
-    { name: 'Women', children: ['Kurtis', 'Sarees', 'Lawn Suits'] },
-    { name: 'Men', children: ['Shirts', 'Kurtas', 'Trousers'] },
-    { name: 'Kids', children: ['Girls', 'Boys'] },
-    { name: 'Accessories', children: ['Bags', 'Jewellery'] },
-    { name: 'Sale', children: [] },
+  // Nested to three levels so the storefront's dropdown menus and category
+  // sidebar have real depth to show (both support any depth).
+  interface CatSeed {
+    name: string;
+    children?: CatSeed[];
+  }
+
+  const catData: CatSeed[] = [
+    {
+      name: 'Women',
+      children: [
+        { name: 'Unstitched', children: [{ name: 'Lawn Suits' }, { name: 'Chiffon' }, { name: 'Linen' }] },
+        { name: 'Stitched', children: [{ name: 'Kurtis' }, { name: 'Sarees' }, { name: 'Abayas' }] },
+        { name: 'Festive', children: [{ name: 'Eid Edit' }, { name: 'Wedding' }] },
+      ],
+    },
+    {
+      name: 'Men',
+      children: [
+        { name: 'Shirts', children: [{ name: 'Formal Shirts' }, { name: 'Casual Shirts' }] },
+        { name: 'Kurtas' },
+        { name: 'Bottoms', children: [{ name: 'Trousers' }, { name: 'Shalwars' }] },
+      ],
+    },
+    {
+      name: 'Kids',
+      children: [
+        { name: 'Girls', children: [{ name: 'Frocks' }, { name: 'Party Wear' }] },
+        { name: 'Boys', children: [{ name: 'Kurta Shalwar' }, { name: 'T-Shirts' }] },
+      ],
+    },
+    { name: 'Accessories', children: [{ name: 'Bags' }, { name: 'Jewellery' }, { name: 'Stoles' }] },
+    { name: 'Sale' },
   ];
 
+  // Keyed by full path ('Women/Stitched/Kurtis') so a product can be attached to
+  // any level of the tree.
   const categoryMap = new Map<string, string>();
-  let catSort = 0;
-  for (const c of catData) {
-    const parent = await prisma.category.create({
-      data: {
-        name: c.name,
-        slug: slugify(c.name),
-        image: img(`cat-${c.name}`, 600, 700),
-        sortOrder: catSort++,
-      },
-    });
-    categoryMap.set(c.name, parent.id);
-    let childSort = 0;
-    for (const child of c.children) {
-      const sub = await prisma.category.create({
+
+  const createCategories = async (nodes: CatSeed[], parentId: string | null, path: string[]) => {
+    for (const [i, node] of nodes.entries()) {
+      const trail = [...path, node.name];
+      const category = await prisma.category.create({
         data: {
-          name: child,
-          slug: slugify(`${c.name}-${child}`),
-          parentId: parent.id,
-          sortOrder: childSort++,
+          name: node.name,
+          slug: slugify(trail.join('-')),
+          // Only top-level categories carry a tile image (used by the homepage
+          // tiles and the navbar dropdown teaser).
+          image: parentId ? undefined : img(`cat-${node.name}`, 600, 700),
+          parentId,
+          sortOrder: i,
         },
       });
-      categoryMap.set(`${c.name}/${child}`, sub.id);
+      categoryMap.set(trail.join('/'), category.id);
+      if (node.children?.length) await createCategories(node.children, category.id, trail);
     }
-  }
+  };
+  await createCategories(catData, null, []);
 
   // ── Attributes ───────────────────────────────────────────────
   const fabric = await prisma.attribute.create({
@@ -148,18 +173,18 @@ async function main() {
   ];
 
   const productDefs = [
-    { title: 'Embroidered Lawn Kurti', cat: 'Women/Kurtis', base: 3499, sale: 2799, brand: 'Aabroo', featured: true },
-    { title: 'Printed Chiffon Saree', cat: 'Women/Sarees', base: 8999, sale: null, brand: 'Aabroo', featured: true },
-    { title: '3-Piece Lawn Suit', cat: 'Women/Lawn Suits', base: 5499, sale: 4299, brand: 'Aabroo', featured: true },
-    { title: 'Classic Formal Shirt', cat: 'Men/Shirts', base: 2999, sale: 2299, brand: 'Adeel', featured: true },
+    { title: 'Embroidered Lawn Kurti', cat: 'Women/Stitched/Kurtis', base: 3499, sale: 2799, brand: 'Aabroo', featured: true },
+    { title: 'Printed Chiffon Saree', cat: 'Women/Stitched/Sarees', base: 8999, sale: null, brand: 'Aabroo', featured: true },
+    { title: '3-Piece Lawn Suit', cat: 'Women/Unstitched/Lawn Suits', base: 5499, sale: 4299, brand: 'Aabroo', featured: true },
+    { title: 'Classic Formal Shirt', cat: 'Men/Shirts/Formal Shirts', base: 2999, sale: 2299, brand: 'Adeel', featured: true },
     { title: 'Cotton Kurta', cat: 'Men/Kurtas', base: 3999, sale: null, brand: 'Adeel', featured: false },
-    { title: 'Slim-Fit Trousers', cat: 'Men/Trousers', base: 3499, sale: 2799, brand: 'Adeel', featured: false },
-    { title: 'Girls Frock', cat: 'Kids/Girls', base: 1999, sale: 1499, brand: 'TinyTots', featured: true },
-    { title: 'Boys Kurta Shalwar', cat: 'Kids/Boys', base: 2499, sale: null, brand: 'TinyTots', featured: false },
+    { title: 'Slim-Fit Trousers', cat: 'Men/Bottoms/Trousers', base: 3499, sale: 2799, brand: 'Adeel', featured: false },
+    { title: 'Girls Frock', cat: 'Kids/Girls/Frocks', base: 1999, sale: 1499, brand: 'TinyTots', featured: true },
+    { title: 'Boys Kurta Shalwar', cat: 'Kids/Boys/Kurta Shalwar', base: 2499, sale: null, brand: 'TinyTots', featured: false },
     { title: 'Leather Tote Bag', cat: 'Accessories/Bags', base: 4999, sale: 3999, brand: 'Carry', featured: true },
     { title: 'Kundan Earrings', cat: 'Accessories/Jewellery', base: 1299, sale: null, brand: 'Zevar', featured: false },
-    { title: 'Summer Linen Kurti', cat: 'Women/Kurtis', base: 2999, sale: 1999, brand: 'Aabroo', featured: false },
-    { title: 'Casual Cotton Shirt', cat: 'Men/Shirts', base: 2499, sale: 1899, brand: 'Adeel', featured: false },
+    { title: 'Summer Linen Kurti', cat: 'Women/Stitched/Kurtis', base: 2999, sale: 1999, brand: 'Aabroo', featured: false },
+    { title: 'Casual Cotton Shirt', cat: 'Men/Shirts/Casual Shirts', base: 2499, sale: 1899, brand: 'Adeel', featured: false },
   ];
 
   const createdProducts: { id: string; slug: string }[] = [];
