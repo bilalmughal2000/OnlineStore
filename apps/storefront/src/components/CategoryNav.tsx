@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { ArrowRight, ChevronDown } from 'lucide-react';
@@ -207,13 +208,15 @@ export function CategoryNav({ menu }: { menu: MenuNode[] }) {
                   // one, so a shallow category keeps a compact panel.
                   className="group/img relative hidden w-40 shrink-0 self-stretch overflow-hidden rounded-xl xl:block"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   {/* Absolute so its intrinsic aspect ratio doesn't decide the
-                      panel's height — the links do. */}
-                  <img
+                      panel's height — the links do. `sizes` keeps the download
+                      to the 160px the panel actually shows. */}
+                  <Image
                     src={active.image}
                     alt={active.label}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover/img:scale-105"
+                    fill
+                    sizes="160px"
+                    className="object-cover transition-transform duration-500 group-hover/img:scale-105"
                   />
                   <span className="absolute inset-0 bg-gradient-to-t from-ink/75 via-ink/10 to-transparent" />
                   <span className="absolute bottom-3 left-3 right-3 text-[13px] font-semibold text-white">

@@ -324,6 +324,17 @@ model Order {
   notes         String?
   codVerified   Boolean       @default(false)
   cancelReason  String?
+
+  // ── Courier / shipment ─────────────────────────────────────
+  // Set once the parcel is booked with a courier (PostEx today). The tracking
+  // number is what the customer actually wants to see, and courierStatus is the
+  // courier's own wording, kept separate from our OrderStatus so a sync can
+  // never overwrite the shop's state machine.
+  courier         String? // 'postex'
+  trackingNumber  String?
+  courierStatus   String?
+  courierBookedAt DateTime?
+  courierSyncedAt DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -338,6 +349,8 @@ model Order {
   @@index([createdAt])
   // Guest order lookup + per-email coupon limits.
   @@index([guestEmail])
+  // "Which order is this CN?" — courier webhooks and support lookups.
+  @@index([trackingNumber])
 }
 
 model OrderItem {

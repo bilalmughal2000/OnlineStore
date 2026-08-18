@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DEFAULT_THEME, SOCIAL_NETWORKS } from '@store/shared-types';
 import { api } from '@/lib/api';
+import { Select } from '@/components/Select';
 import { ThemePicker } from '@/components/ThemePicker';
 
 export function Settings() {
@@ -9,6 +10,22 @@ export function Settings() {
 
   const load = () => api.get<{ settings: Record<string, any> }>('/admin/settings').then((d) => setSettings(d.settings));
   useEffect(() => { load(); }, []);
+
+  /* Courier connection state: whether the server has a token, plus the pickup
+     addresses PostEx knows about so the code can be picked instead of typed. */
+  const [courierState, setCourierState] = useState<{
+    configured: boolean;
+    addresses: { code: string; label: string }[];
+    error: string | null;
+  } | null>(null);
+  useEffect(() => {
+    api
+      .get<{ configured: boolean; addresses: { code: string; label: string }[]; error: string | null }>(
+        '/admin/orders/courier/config',
+      )
+      .then((d) => setCourierState({ configured: d.configured, addresses: d.addresses ?? [], error: d.error }))
+      .catch(() => {});
+  }, []);
 
   const save = async (key: string) => {
     await api.put(`/admin/settings/${key}`, { value: settings[key] });
@@ -128,6 +145,99 @@ export function Settings() {
             name is appended automatically, so you can see what they were looking at.
           </p>
         </Field>
+      </Section>
+
+      {/* Courier — PostEx. The API token stays in the server environment; only the
+          operational choices live here. */}
+      <Section title="Courier (PostEx)" onSave={() => save('courier')} saved={saved === 'courier'}>
+        <p className="-mt-1 text-xs text-stone-400">
+          Book parcels straight from an order and send customers a tracking number. The API token is set
+          on the server as <code>POSTEX_API_TOKEN</code>; everything else is here.
+          {courierState && (
+            <span className={courierState.configured ? 'text-green-700' : 'text-amber-700'}>
+              {' '}
+              {courierState.configured ? 'Token detected ✓' : 'No token on the server yet.'}
+            </span>
+          )}
+        </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!settings.courier?.enabled}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                courier: { ...s.courier, enabled: e.target.checked, provider: 'postex' },
+              }))
+            }
+          />
+          Use PostEx for shipments (shows the courier panel on every order)
+        </label>
+
+        <Field label="Pickup address code">
+          {courierState?.addresses?.length ? (
+            <Select
+              value={settings.courier?.pickupAddressCode ?? ''}
+              onChange={(v) => upd('courier', 'pickupAddressCode', v)}
+              options={[
+                { value: '', label: '— Select a pickup address —' },
+                ...courierState.addresses.map((a) => ({ value: a.code, label: `${a.code} — ${a.label}` })),
+              ]}
+            />
+          ) : (
+            <input
+              className="input"
+              placeholder="001"
+              value={settings.courier?.pickupAddressCode ?? ''}
+              onChange={(e) => upd('courier', 'pickupAddressCode', e.target.value)}
+            />
+          )}
+          <p className="mt-1 text-xs text-stone-400">
+            From your PostEx merchant portal — parcels are collected from this address.
+            {courierState?.error && <span className="text-amber-700"> {courierState.error}</span>}
+          </p>
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Order type">
+            <input
+              className="input"
+              placeholder="Normal"
+              value={settings.courier?.orderType ?? ''}
+              onChange={(e) => upd('courier', 'orderType', e.target.value)}
+            />
+          </Field>
+          <Field label="Store address code (optional)">
+            <input
+              className="input"
+              value={settings.courier?.storeAddressCode ?? ''}
+              onChange={(e) => upd('courier', 'storeAddressCode', e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <Field label="Customer tracking link">
+          <input
+            className="input"
+            placeholder="https://postex.pk/tracking"
+            value={settings.courier?.trackingUrlTemplate ?? ''}
+            onChange={(e) => upd('courier', 'trackingUrlTemplate', e.target.value)}
+          />
+          <p className="mt-1 text-xs text-stone-400">
+            Put <code>{'{cn}'}</code> where the tracking number goes, e.g.{' '}
+            <code>https://postex.pk/tracking?cn={'{cn}'}</code>. Without it the customer gets the plain
+            tracking page plus their number to paste.
+          </p>
+        </Field>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!settings.courier?.autoBookOnConfirm}
+            onChange={(e) => upd('courier', 'autoBookOnConfirm', e.target.checked)}
+          />
+          Book automatically when an order is marked Confirmed
+        </label>
       </Section>
 
       {/* Social links — drive the footer icons. Each row is independently

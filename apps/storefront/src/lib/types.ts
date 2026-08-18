@@ -97,6 +97,13 @@ export interface HomepageSection {
   categories?: Category[];
 }
 
+/** Courier fields on an order, present once the parcel has been booked. */
+export interface OrderTracking {
+  courier?: string | null;
+  trackingNumber?: string | null;
+  courierStatus?: string | null;
+}
+
 export interface CartLine {
   variantId: string;
   productId: string;

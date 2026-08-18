@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -281,8 +282,14 @@ export function Announcements({ announcements }: { announcements: Announcement[]
 
             {modalFor.imageUrl && (
               <div className="relative h-40 w-full shrink-0 sm:h-48">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={modalFor.imageUrl} alt="" className="h-full w-full object-cover" />
+                <Image
+                  src={modalFor.imageUrl}
+                  alt=""
+                  fill
+                  sizes="(max-width: 640px) 100vw, 512px"
+                  className="object-cover"
+                  priority
+                />
                 <span className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-cream to-transparent" />
               </div>
             )}

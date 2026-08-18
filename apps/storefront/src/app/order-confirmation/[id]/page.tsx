@@ -7,6 +7,7 @@ import { clientApi } from '@/lib/client-api';
 import { formatPKR } from '@/lib/format';
 import { trackPurchase } from '@/lib/analytics';
 import { ClaimOrderCard } from '@/components/ClaimOrderCard';
+import { TrackParcel } from '@/components/TrackParcel';
 import { useStore } from '@/providers/StoreProvider';
 
 // Purchase events must be idempotent per order: a refresh or a back-forward
@@ -134,6 +135,13 @@ export default function OrderConfirmation({ params }: { params: { id: string } }
           excluding logged-in users would unmount the card at that exact moment,
           swallowing its success message. It also lets someone who is already
           signed in attach a guest order they opened from a lookup email. */}
+      {/* Tracking, once the parcel has been booked with the courier. */}
+      <TrackParcel
+        courier={order.courier}
+        trackingNumber={order.trackingNumber}
+        courierStatus={order.courierStatus}
+      />
+
       {!order.userId && token && order.guestEmail && (
         <ClaimOrderCard orderId={order.id} token={token} email={order.guestEmail} />
       )}

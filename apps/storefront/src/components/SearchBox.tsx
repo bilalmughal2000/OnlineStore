@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -273,8 +274,7 @@ export function SearchBox({
                       <button className={`w-full text-left ${rowClass(i)}`} onClick={() => go(`/product/${p.slug}`, term)}>
                         <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-black/5">
                           {p.images?.[0]?.url && (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={p.images[0].url} alt="" className="h-full w-full object-cover" />
+                            <Image src={p.images[0].url} alt="" fill sizes="44px" className="object-cover" />
                           )}
                         </span>
                         <span className="min-w-0 flex-1">
@@ -403,8 +403,7 @@ export function SearchBox({
                       <button className={`w-full text-left ${rowClass(i)}`} onClick={() => go(`/product/${p.slug}`)}>
                         <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-black/5">
                           {p.images?.[0]?.url && (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={p.images[0].url} alt="" className="h-full w-full object-cover" />
+                            <Image src={p.images[0].url} alt="" fill sizes="44px" className="object-cover" />
                           )}
                         </span>
                         <span className="min-w-0 flex-1">

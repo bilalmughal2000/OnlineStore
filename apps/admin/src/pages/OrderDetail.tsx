@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, Printer, RefreshCw, Truck, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatPKR, formatDate } from '@/lib/format';
 import { Select } from '@/components/Select';
@@ -13,9 +13,29 @@ export function OrderDetail() {
   const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [note, setNote] = useState('');
+  const [courier, setCourier] = useState<{
+    enabled?: boolean;
+    provider?: string;
+    trackingUrlTemplate?: string;
+  } | null>(null);
+  const [courierConfigured, setCourierConfigured] = useState(false);
+  const [shipBusy, setShipBusy] = useState(false);
+  const [shipError, setShipError] = useState<string | null>(null);
+  const [scans, setScans] = useState<{ status: string; at?: string }[] | null>(null);
 
   const load = () => api.get<{ order: any }>(`/admin/orders/${id}`).then((d) => setOrder(d.order));
   useEffect(() => { load(); }, [id]);
+
+  // Whether a courier is switched on at all decides if the panel is worth showing.
+  useEffect(() => {
+    api
+      .get<{ courier: any; configured: boolean }>('/admin/orders/courier/config')
+      .then((d) => {
+        setCourier(d.courier);
+        setCourierConfigured(d.configured);
+      })
+      .catch(() => {});
+  }, []);
 
   if (!order) return <p className="text-stone-500">Loading…</p>;
 
@@ -27,6 +47,31 @@ export function OrderDetail() {
   const updatePayment = async (paymentStatus: string) => {
     await api.patch(`/admin/orders/${id}/payment`, { paymentStatus });
     load();
+  };
+
+  /** Book / re-sync / cancel the parcel. Courier errors are shown, not swallowed. */
+  const shipmentAction = async (action: 'book' | 'sync' | 'cancel') => {
+    setShipBusy(true);
+    setShipError(null);
+    try {
+      if (action === 'book') await api.post(`/admin/orders/${id}/shipment`, {});
+      else if (action === 'sync') {
+        const d = await api.post<{ history: { status: string; at?: string }[] }>(
+          `/admin/orders/${id}/shipment/sync`,
+          {},
+        );
+        setScans(d.history ?? []);
+      } else {
+        if (!confirm('Cancel this booking with PostEx?')) return;
+        await api.del(`/admin/orders/${id}/shipment`);
+        setScans(null);
+      }
+      load();
+    } catch (err) {
+      setShipError(err instanceof Error ? err.message : 'Courier request failed');
+    } finally {
+      setShipBusy(false);
+    }
   };
 
   return (
@@ -122,6 +167,92 @@ export function OrderDetail() {
               options={PAY_STATUSES.map((s) => ({ value: s, label: s }))}
             />
           </div>
+
+          {/* Courier. Hidden entirely until a courier is switched on in Settings,
+              so stores that hand parcels over by themselves see nothing. */}
+          {courier?.enabled && (
+            <div className="card space-y-3 p-5">
+              <h2 className="flex items-center gap-2 font-semibold">
+                <Truck size={16} className="text-brand" /> Courier
+              </h2>
+
+              {!courierConfigured && (
+                <p className="rounded bg-amber-50 p-2 text-xs text-amber-700">
+                  No PostEx API token on the server — set <code>POSTEX_API_TOKEN</code> to book parcels.
+                </p>
+              )}
+              {shipError && <p className="rounded bg-red-50 p-2 text-xs text-red-600">{shipError}</p>}
+
+              {order.trackingNumber ? (
+                <>
+                  <div>
+                    <p className="label">Tracking number</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 rounded bg-stone-100 px-2 py-1 text-sm">{order.trackingNumber}</code>
+                      <button
+                        onClick={() => navigator.clipboard?.writeText(order.trackingNumber)}
+                        title="Copy"
+                        className="text-stone-400 hover:text-brand"
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <a
+                        href={(courier.trackingUrlTemplate ?? 'https://postex.pk/tracking').replace(
+                          '{cn}',
+                          encodeURIComponent(order.trackingNumber),
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open tracking page"
+                        className="text-stone-400 hover:text-brand"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  </div>
+                  <p className="text-xs text-stone-500">
+                    {order.courierStatus ?? 'Booked'}
+                    {order.courierSyncedAt ? ` · synced ${formatDate(order.courierSyncedAt)}` : ''}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button disabled={shipBusy} onClick={() => shipmentAction('sync')} className="btn-outline text-xs">
+                      <RefreshCw size={14} /> {shipBusy ? '…' : 'Sync status'}
+                    </button>
+                    <button
+                      disabled={shipBusy}
+                      onClick={() => shipmentAction('cancel')}
+                      className="btn-outline text-xs text-red-600"
+                    >
+                      <X size={14} /> Cancel booking
+                    </button>
+                  </div>
+                  {scans && scans.length > 0 && (
+                    <ul className="space-y-1 border-t border-stone-100 pt-2 text-xs text-stone-500">
+                      {scans.map((h, i) => (
+                        <li key={i} className="flex justify-between gap-2">
+                          <span>{h.status}</span>
+                          {h.at && <span className="shrink-0">{h.at}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-stone-500">
+                    Books this parcel with PostEx and sends the customer their tracking number.
+                  </p>
+                  <button
+                    disabled={shipBusy || !courierConfigured}
+                    onClick={() => shipmentAction('book')}
+                    className="btn-primary w-full text-sm"
+                  >
+                    <Truck size={15} /> {shipBusy ? 'Booking…' : 'Book with PostEx'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

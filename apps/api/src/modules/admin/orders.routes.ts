@@ -5,10 +5,21 @@ import { updateOrderStatusSchema } from '@store/shared-types';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { serialize } from '../../lib/serialize';
-import { notFound } from '../../lib/errors';
+import { badRequest, notFound } from '../../lib/errors';
 import { toNum } from '../../lib/money';
 import { notifyOrderStatus } from '../../lib/notify';
 import { auditMeta } from '../../middleware/auditLog';
+import {
+  bookShipment,
+  cancelShipment,
+  courierSettings,
+  CourierError,
+  operationalCities,
+  pickupAddresses,
+  postexConfigured,
+  trackShipment,
+  trackingUrl,
+} from '../../lib/postex';
 
 export const adminOrdersRouter = Router();
 
@@ -108,7 +119,47 @@ adminOrdersRouter.patch(
     // Works for guests too — see recipientFor().
     const recipient = recipientFor(order);
     if (recipient) notifyOrderStatus(order, recipient);
-    res.json({ order: serialize(order) });
+
+    /*
+     * Opt-in auto-booking. A courier failure here must not undo a status change
+     * the admin already made, so it is reported as a warning beside a successful
+     * response rather than thrown.
+     */
+    let courierWarning: string | null = null;
+    let result = order;
+    const cfg = await courierSettings();
+    if (
+      cfg.enabled &&
+      cfg.autoBookOnConfirm &&
+      status === OrderStatus.CONFIRMED &&
+      !order.trackingNumber &&
+      postexConfigured()
+    ) {
+      try {
+        const booked = await bookShipment(order, cfg);
+        result = await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            courier: 'postex',
+            trackingNumber: booked.trackingNumber,
+            courierStatus: booked.status ?? 'Booked',
+            courierBookedAt: new Date(),
+            courierSyncedAt: new Date(),
+            statusLogs: {
+              create: {
+                status: order.status,
+                note: `Booked with PostEx — CN ${booked.trackingNumber} (automatic)`,
+              },
+            },
+          },
+          include: orderInclude,
+        });
+      } catch (err) {
+        courierWarning = err instanceof CourierError ? err.message : 'Courier booking failed';
+      }
+    }
+
+    res.json({ order: serialize(result), ...(courierWarning ? { courierWarning } : {}) });
   }),
 );
 
@@ -126,6 +177,123 @@ adminOrdersRouter.patch(
       include: orderInclude,
     });
     res.json({ order: serialize(order) });
+  }),
+);
+
+/*
+ * ─────────────── Courier (PostEx) ───────────────
+ *
+ * Booking is deliberately an explicit action, with `autoBookOnConfirm` as an
+ * opt-in: printing a label is a real-world commitment, and a mis-clicked status
+ * change shouldn't dispatch a rider.
+ *
+ * The courier's own wording lands in `courierStatus`. It never rewrites
+ * `status`: the shop's state machine drives emails and stock, and a courier
+ * relabelling a scan must not silently move an order to DELIVERED.
+ */
+
+/** Config + connection state for the courier screen in Settings. */
+adminOrdersRouter.get(
+  '/courier/config',
+  asyncHandler(async (_req, res) => {
+    const cfg = await courierSettings();
+    const configured = postexConfigured();
+    // Only ask PostEx for its lists when there's a token to ask with.
+    let addresses: { code: string; label: string }[] = [];
+    let cities: string[] = [];
+    let error: string | null = null;
+    if (configured) {
+      try {
+        [addresses, cities] = await Promise.all([pickupAddresses(), operationalCities()]);
+      } catch (err) {
+        error = err instanceof CourierError ? err.message : 'Could not load PostEx data';
+      }
+    }
+    res.json({ courier: cfg, configured, addresses, cities, error });
+  }),
+);
+
+// POST /admin/orders/:id/shipment — book the parcel with the courier
+adminOrdersRouter.post(
+  '/:id/shipment',
+  asyncHandler(async (req, res) => {
+    const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: orderInclude });
+    if (!order) throw notFound('Order not found');
+    if (order.trackingNumber) {
+      throw badRequest(`Already booked — tracking number ${order.trackingNumber}`);
+    }
+    if (order.status === OrderStatus.CANCELLED) throw badRequest('This order is cancelled');
+
+    const cfg = await courierSettings();
+    const booked = await bookShipment(order, cfg);
+
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        courier: 'postex',
+        trackingNumber: booked.trackingNumber,
+        courierStatus: booked.status ?? 'Booked',
+        courierBookedAt: new Date(),
+        courierSyncedAt: new Date(),
+        statusLogs: {
+          create: { status: order.status, note: `Booked with PostEx — CN ${booked.trackingNumber}` },
+        },
+      },
+      include: orderInclude,
+    });
+    auditMeta(res, { orderNumber: order.orderNumber, trackingNumber: booked.trackingNumber });
+
+    // Tell the customer their parcel is on its way, with the number to track it.
+    const recipient = recipientFor(updated);
+    if (recipient) notifyOrderStatus(updated, recipient);
+
+    res.json({ order: serialize(updated), trackingUrl: trackingUrl(cfg, booked.trackingNumber) });
+  }),
+);
+
+// POST /admin/orders/:id/shipment/sync — pull the courier's latest scan
+adminOrdersRouter.post(
+  '/:id/shipment/sync',
+  asyncHandler(async (req, res) => {
+    const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+    if (!order) throw notFound('Order not found');
+    if (!order.trackingNumber) throw badRequest('This order has not been booked with a courier yet');
+
+    const result = await trackShipment(order.trackingNumber);
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: { courierStatus: result.status ?? order.courierStatus, courierSyncedAt: new Date() },
+      include: orderInclude,
+    });
+    res.json({ order: serialize(updated), history: result.history });
+  }),
+);
+
+// DELETE /admin/orders/:id/shipment — cancel the booking with the courier
+adminOrdersRouter.delete(
+  '/:id/shipment',
+  asyncHandler(async (req, res) => {
+    const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+    if (!order) throw notFound('Order not found');
+    if (!order.trackingNumber) throw badRequest('Nothing to cancel — no shipment booked');
+
+    await cancelShipment(order.trackingNumber);
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        courier: null,
+        trackingNumber: null,
+        courierStatus: null,
+        courierBookedAt: null,
+        courierSyncedAt: null,
+        statusLogs: {
+          create: { status: order.status, note: `PostEx booking cancelled (was CN ${order.trackingNumber})` },
+        },
+      },
+      include: orderInclude,
+    });
+    auditMeta(res, { orderNumber: order.orderNumber, cancelledTracking: order.trackingNumber });
+    res.json({ order: serialize(updated) });
   }),
 );
 

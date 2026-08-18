@@ -195,10 +195,22 @@ contentRouter.get(
   asyncHandler(async (_req, res) => {
     const data = await cached('content:settings', 300, async () => {
       const rows = await prisma.setting.findMany({
-        where: { key: { in: ['store', 'shipping', 'payments', 'whatsapp', 'social'] } },
+        where: { key: { in: ['store', 'shipping', 'payments', 'whatsapp', 'social', 'courier'] } },
       });
       // Never expose which payment credentials exist — only enabled flags.
-      return { settings: Object.fromEntries(rows.map((r) => [r.key, r.value])) };
+      const settings = Object.fromEntries(rows.map((r) => [r.key, r.value])) as Record<
+        string,
+        Record<string, unknown> | undefined
+      >;
+      // The courier config holds operational detail (pickup codes) that a shopper
+      // has no business seeing — only the tracking link shape is public.
+      if (settings.courier) {
+        settings.courier = {
+          provider: settings.courier.provider ?? '',
+          trackingUrlTemplate: settings.courier.trackingUrlTemplate ?? 'https://postex.pk/tracking',
+        };
+      }
+      return { settings };
     });
     res.json(data);
   }),

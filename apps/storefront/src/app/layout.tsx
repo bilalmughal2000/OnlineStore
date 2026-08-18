@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { StoreProvider } from '@/providers/StoreProvider';
 import { Header } from '@/components/Header';
@@ -33,6 +33,10 @@ export const metadata: Metadata = {
   },
   twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
   robots: { index: true, follow: true },
+  // Lets Android/iOS offer "add to home screen" and dress the launched window
+  // like an app rather than a browser tab (see app/manifest.ts).
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Aabroo' },
   // Meta requires a verified domain before you can configure Aggregated Event
   // Measurement (which is what keeps Purchase reporting working for iOS
   // traffic). Renders <meta name="facebook-domain-verify"> only when set.
@@ -128,6 +132,18 @@ function siteJsonLd(storeName: string) {
     ],
   };
 }
+
+/*
+ * `viewport` is separate from `metadata` in Next 14. themeColor tints the phone's
+ * browser chrome, and interactiveWidget stops the layout being resized (and the
+ * fixed header jumping) every time the on-screen keyboard opens.
+ */
+export const viewport: Viewport = {
+  themeColor: '#1c1917',
+  width: 'device-width',
+  initialScale: 1,
+  interactiveWidget: 'resizes-content',
+};
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { header, footer, announcements, storeName, promoText, themeKey, customTheme, whatsapp, social } =

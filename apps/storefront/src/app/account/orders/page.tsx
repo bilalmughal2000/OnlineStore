@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { TrackParcel } from '@/components/TrackParcel';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/providers/StoreProvider';
 import { clientApi } from '@/lib/client-api';
@@ -45,6 +46,11 @@ export default function OrdersPage() {
                 <p className="text-sm text-ink/50">
                   {new Date(o.createdAt).toLocaleDateString('en-PK')} · {o.items.length} item(s) · {o.paymentMethod}
                 </p>
+                {o.trackingNumber && (
+                  <p className="mt-1">
+                    <TrackParcel courier={o.courier} trackingNumber={o.trackingNumber} compact />
+                  </p>
+                )}
               </div>
               <span className={`badge ${STATUS_COLORS[o.status] ?? 'bg-gray-100'}`}>{o.status.replace(/_/g, ' ')}</span>
               <div className="text-right">
