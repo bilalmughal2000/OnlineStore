@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer';
 import { PageBack } from '@/components/PageBack';
 import { api } from '@/lib/api';
 import { Analytics } from '@/components/Analytics';
+import { Announcements } from '@/components/Announcements';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { SITE_URL } from '@/lib/site';
 import { THEMES, DEFAULT_THEME, type SocialSettings, type ThemePalette } from '@store/shared-types';
@@ -51,10 +52,16 @@ export const metadata: Metadata = {
 
 async function getShell() {
   try {
-    const [{ header, footer }, { settings }] = await Promise.all([api.menu(), api.settings()]);
+    const [{ header, footer }, { settings }, { announcements }] = await Promise.all([
+      api.menu(),
+      api.settings(),
+      // Best-effort: an announcement failing to load must not take the shell with it.
+      api.announcements().catch(() => ({ announcements: [] })),
+    ]);
     return {
       header,
       footer,
+      announcements,
       storeName: (settings?.store?.name as string) ?? 'Aabroo',
       promoText: (settings?.store?.promoText as string) ?? '',
       themeKey: (settings?.store?.theme as string) ?? DEFAULT_THEME,
@@ -68,6 +75,7 @@ async function getShell() {
     return {
       header: [],
       footer: [],
+      announcements: [],
       storeName: 'Aabroo',
       promoText: '',
       themeKey: DEFAULT_THEME,
@@ -122,7 +130,8 @@ function siteJsonLd(storeName: string) {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { header, footer, storeName, promoText, themeKey, customTheme, whatsapp, social } = await getShell();
+  const { header, footer, announcements, storeName, promoText, themeKey, customTheme, whatsapp, social } =
+    await getShell();
   return (
     <html lang="en" style={themeVars(themeKey, customTheme)}>
       <head>
@@ -141,6 +150,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
         <StoreProvider>
           <Header menu={header} storeName={storeName} promoText={promoText} />
+          {/* Event sales / notices: a dismissible ribbon plus a once-only modal. */}
+          <Announcements announcements={announcements} />
           <main className="app-main flex flex-1 flex-col">
             <div className="flex-1">
               <PageBack />

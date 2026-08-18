@@ -466,6 +466,33 @@ model Banner {
   endDate   DateTime?
 }
 
+// A dated store-wide announcement — an event sale (Eid, 14 August), a shipping
+// notice, a coupon drop. startDate/endDate mean the admin can queue one ahead of
+// time and it appears and retires on its own.
+//
+// updatedAt is part of the storefront's dismissal key: editing an announcement
+// lets it show once more to someone who already dismissed the older version.
+model Announcement {
+  id            String   @id @default(cuid())
+  title         String
+  message       String?  @db.Text
+  badge         String? // small pill above the title, e.g. "14 August"
+  imageUrl      String?
+  ctaLabel      String?
+  ctaUrl        String?
+  couponCode    String? // shown as a copyable chip when set
+  placement     String   @default("both") // modal | ribbon | both
+  showCountdown Boolean  @default(false) // needs endDate to render
+  isActive      Boolean  @default(true)
+  startDate     DateTime?
+  endDate       DateTime?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, startDate, endDate])
+}
+
 model MenuItem {
   id        String  @id @default(cuid())
   label     String

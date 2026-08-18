@@ -11,6 +11,7 @@ import { Orders } from '@/pages/Orders';
 import { OrderDetail } from '@/pages/OrderDetail';
 import { Coupons } from '@/pages/Coupons';
 import { Homepage } from '@/pages/Homepage';
+import { Announcements } from '@/pages/Announcements';
 import { Users } from '@/pages/Users';
 import { Reviews } from '@/pages/Reviews';
 import { Pages } from '@/pages/Pages';
@@ -44,6 +45,7 @@ export function App() {
         <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="coupons" element={<RequireAdmin><Coupons /></RequireAdmin>} />
         <Route path="sections" element={<Homepage />} />
+        <Route path="announcements" element={<RequireAdmin><Announcements /></RequireAdmin>} />
         <Route path="users" element={<RequireAdmin><Users /></RequireAdmin>} />
         <Route path="customers" element={<RequireAdmin><Users /></RequireAdmin>} />
         <Route path="reviews" element={<Reviews />} />

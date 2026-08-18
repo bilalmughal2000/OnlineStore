@@ -123,6 +123,31 @@ contentRouter.get(
   }),
 );
 
+// GET /content/announcements — announcements that are live *right now*.
+//
+// The date window is evaluated server-side so a scheduled Eid or 14 August sale
+// switches itself on and off without anyone touching the admin. Never cached for
+// long: an announcement that lingers after its sale ended is worse than none.
+contentRouter.get(
+  '/announcements',
+  asyncHandler(async (_req, res) => {
+    const now = new Date();
+    const announcements = await prisma.announcement.findMany({
+      where: {
+        isActive: true,
+        AND: [
+          { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+          { OR: [{ endDate: null }, { endDate: { gte: now } }] },
+        ],
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      take: 5,
+    });
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    res.json({ announcements: serialize(announcements) });
+  }),
+);
+
 // GET /content/pages/:slug — static page
 contentRouter.get(
   '/pages/:slug',

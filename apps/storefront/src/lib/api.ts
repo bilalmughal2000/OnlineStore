@@ -9,7 +9,16 @@ async function get<T>(path: string, revalidate = 60): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-import type { Banner, Category, HomepageSection, MenuNode, Product, Review, Testimonial } from './types';
+import type {
+  Announcement,
+  Banner,
+  Category,
+  HomepageSection,
+  MenuNode,
+  Product,
+  Review,
+  Testimonial,
+} from './types';
 
 export const api = {
   homepage: () =>
@@ -18,6 +27,8 @@ export const api = {
     ),
   menu: () => get<{ header: MenuNode[]; footer: any[] }>('/content/menu'),
   settings: () => get<{ settings: Record<string, any> }>('/content/settings'),
+  // Short TTL: a sale banner that outlives its sale is worse than none at all.
+  announcements: () => get<{ announcements: Announcement[] }>('/content/announcements', 30),
   categories: () => get<{ categories: Category[] }>('/categories'),
   // `ancestors` is the breadcrumb trail (root first); `branch` is the top-level
   // category with its whole subtree, which the listing sidebar renders.

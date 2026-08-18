@@ -200,6 +200,34 @@ export const couponInputSchema = z.object({
 });
 
 // ─────────────────────────── Homepage section (admin) ───────
+/*
+ * A store-wide announcement (event sale, holiday, notice).
+ *
+ * `placement` decides where it shows: a one-time modal, a persistent ribbon
+ * under the header, or both — the modal for impact, the ribbon so the message
+ * survives being dismissed.
+ */
+export const announcementPlacements = ['modal', 'ribbon', 'both'] as const;
+
+export const announcementInputSchema = z.object({
+  title: z.string().min(1),
+  message: z.string().optional().nullable(),
+  badge: z.string().optional().nullable(),
+  imageUrl: z.string().optional().nullable(),
+  ctaLabel: z.string().optional().nullable(),
+  ctaUrl: z.string().optional().nullable(),
+  couponCode: z.string().optional().nullable(),
+  placement: z.enum(announcementPlacements).default('both'),
+  showCountdown: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  // ISO strings; empty/absent means "no bound on this side".
+  startDate: z.string().datetime().optional().nullable(),
+  endDate: z.string().datetime().optional().nullable(),
+  sortOrder: z.number().int().default(0),
+});
+
+export type AnnouncementInput = z.infer<typeof announcementInputSchema>;
+
 export const sectionTypes = ['PRODUCT_GRID', 'BANNER', 'CAROUSEL', 'CATEGORY_TILES'] as const;
 
 export const sectionInputSchema = z.object({

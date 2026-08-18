@@ -62,6 +62,24 @@ export interface MenuNode {
   children?: MenuNode[];
 }
 
+/** A dated store-wide announcement (event sale, holiday, notice). */
+export interface Announcement {
+  id: string;
+  title: string;
+  message?: string | null;
+  badge?: string | null;
+  imageUrl?: string | null;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  couponCode?: string | null;
+  placement: 'modal' | 'ribbon' | 'both';
+  showCountdown: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
+  /** Part of the dismissal key, so an edited announcement can show once more. */
+  updatedAt: string;
+}
+
 export interface Banner {
   id: string;
   title?: string | null;

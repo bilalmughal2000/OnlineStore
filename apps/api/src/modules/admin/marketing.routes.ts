@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma, Prisma } from '@store/database';
-import { couponInputSchema, sectionInputSchema } from '@store/shared-types';
+import { announcementInputSchema, couponInputSchema, sectionInputSchema } from '@store/shared-types';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { validate } from '../../middleware/validate';
 import { requireRole } from '../../middleware/auth';
@@ -22,7 +22,7 @@ export const adminMarketingRouter = Router();
  *
  * `.use()` matches by prefix, so this also covers /coupons/:id, /settings/:key etc.
  */
-adminMarketingRouter.use(['/coupons', '/settings', '/activity'], requireRole('ADMIN'));
+adminMarketingRouter.use(['/coupons', '/settings', '/activity', '/announcements'], requireRole('ADMIN'));
 
 // ─────────────── Coupons ───────────────
 adminMarketingRouter.get(
@@ -243,6 +243,70 @@ adminMarketingRouter.delete(
       where: { id: review.productId },
       data: { ratingAvg: agg._avg.rating ?? 0, ratingCount: agg._count._all },
     });
+    res.json({ ok: true });
+  }),
+);
+
+// ─────────────── Announcements ───────────────
+//
+// Event sales and store-wide notices. Dates are optional on both sides: no
+// startDate means "live as soon as it's active", no endDate means "until I turn
+// it off".
+const announcementBody = announcementInputSchema.extend({
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+});
+
+/** Empty string from a datetime-local input means "no bound", not epoch 0. */
+function toDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+adminMarketingRouter.get(
+  '/announcements',
+  asyncHandler(async (_req, res) => {
+    const announcements = await prisma.announcement.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+    res.json({ announcements: serialize(announcements) });
+  }),
+);
+
+adminMarketingRouter.post(
+  '/announcements',
+  validate(announcementBody),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof announcementBody>;
+    const announcement = await prisma.announcement.create({
+      data: { ...body, startDate: toDate(body.startDate), endDate: toDate(body.endDate) },
+    });
+    res.status(201).json({ announcement: serialize(announcement) });
+  }),
+);
+
+adminMarketingRouter.put(
+  '/announcements/:id',
+  validate(announcementBody.partial()),
+  asyncHandler(async (req, res) => {
+    const body = req.body as Partial<z.infer<typeof announcementBody>>;
+    const announcement = await prisma.announcement.update({
+      where: { id: req.params.id },
+      data: {
+        ...body,
+        ...('startDate' in body ? { startDate: toDate(body.startDate) } : {}),
+        ...('endDate' in body ? { endDate: toDate(body.endDate) } : {}),
+      },
+    });
+    res.json({ announcement: serialize(announcement) });
+  }),
+);
+
+adminMarketingRouter.delete(
+  '/announcements/:id',
+  asyncHandler(async (req, res) => {
+    await prisma.announcement.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   }),
 );
