@@ -8,6 +8,7 @@ import { useStore } from '@/providers/StoreProvider';
 import { formatPKR } from '@/lib/format';
 import { ApiError } from '@/lib/client-api';
 import { trackViewCart } from '@/lib/analytics';
+import { blockingLines, lineLabel, stockMessage, stockStateOf } from '@/lib/stock';
 
 export default function CartPage() {
   const { cart, updateQty, removeItem, applyCoupon, removeCoupon } = useStore();
@@ -56,6 +57,10 @@ export default function CartPage() {
     );
   }
 
+  // Lines that would be rejected at checkout. Surfacing them here means the
+  // buyer fixes it now, rather than after filling in an address and payment.
+  const blocked = blockingLines(view.lines);
+
   const pct = view.freeShippingThreshold
     ? Math.min(100, ((view.freeShippingThreshold - view.amountToFreeShipping) / view.freeShippingThreshold) * 100)
     : 100;
@@ -79,8 +84,12 @@ export default function CartPage() {
           )}
 
           <div className="divide-y divide-black/5 card">
-            {view.lines.map((line) => (
-              <div key={line.variantId} className="flex gap-4 p-4">
+            {view.lines.map((line) => {
+              const state = stockStateOf(line);
+              const notice = stockMessage(line);
+              const urgent = state.kind === 'sold-out' || state.kind === 'not-enough';
+              return (
+              <div key={line.variantId} className={`flex gap-4 p-4 ${urgent ? 'bg-sale/5' : ''}`}>
                 <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded bg-black/5">
                   {line.image && <Image src={line.image} alt={line.productTitle} fill sizes="80px" className="object-cover" />}
                 </div>
@@ -90,6 +99,11 @@ export default function CartPage() {
                   </Link>
                   {line.variantLabel && <p className="text-sm text-ink/50">{line.variantLabel}</p>}
                   <p className="mt-1 text-sm font-semibold">{formatPKR(line.unitPrice)}</p>
+                  {notice && (
+                    <p className={`mt-1 text-xs font-medium ${urgent ? 'text-sale' : 'text-accent'}`}>
+                      {notice}
+                    </p>
+                  )}
                   <div className="mt-auto flex items-center gap-3 pt-2">
                     <div className="flex items-center rounded-md border border-ink/20">
                       <button
@@ -124,7 +138,8 @@ export default function CartPage() {
                 </div>
                 <div className="text-right font-semibold">{formatPKR(line.lineTotal)}</div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -165,9 +180,25 @@ export default function CartPage() {
             <Row label="Total" value={formatPKR(view.total)} bold />
           </dl>
 
-          <Link href="/checkout" className="btn-primary mt-5 w-full">
-            Proceed to Checkout
-          </Link>
+          {blocked.length > 0 ? (
+            <div className="mt-5">
+              <p className="mb-2 rounded bg-sale/10 p-3 text-sm text-sale">
+                {blocked.length === 1
+                  ? `“${lineLabel(blocked[0])}” isn’t available in the quantity you’ve chosen.`
+                  : `${blocked.length} items aren’t available in the quantities you’ve chosen.`}{' '}
+                Update your cart to continue.
+              </p>
+              {/* Deliberately not a link: letting them through only to be
+                  refused after entering an address is the worse experience. */}
+              <button disabled className="btn-primary w-full opacity-50" aria-disabled="true">
+                Proceed to Checkout
+              </button>
+            </div>
+          ) : (
+            <Link href="/checkout" className="btn-primary mt-5 w-full">
+              Proceed to Checkout
+            </Link>
+          )}
         </div>
       </div>
     </div>

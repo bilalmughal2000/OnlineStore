@@ -177,7 +177,23 @@ ordersRouter.post(
           where: { id: line.variantId, stock: { gte: line.quantity } },
           data: { stock: { decrement: line.quantity } },
         });
-        if (count === 0) throw badRequest(`"${line.productTitle}" is out of stock`);
+        if (count === 0) {
+          // Only reached when the claim lost a race, so the extra read costs
+          // nothing on the happy path — and "only 1 left" is a far more
+          // actionable message than a bare "out of stock" when some remain.
+          const current = await tx.productVariant.findUnique({
+            where: { id: line.variantId },
+            select: { stock: true },
+          });
+          const left = current?.stock ?? 0;
+          const what = [line.productTitle, line.variantLabel].filter(Boolean).join(' — ');
+          throw badRequest(
+            left > 0
+              ? `Only ${left} left of "${what}". Please reduce the quantity in your cart.`
+              : `"${what}" just sold out. Please remove it from your cart to continue.`,
+            { variantId: line.variantId, productTitle: line.productTitle, available: left },
+          );
+        }
       }
 
       const created = await tx.order.create({

@@ -9,6 +9,7 @@ import { clientApi, ApiError } from '@/lib/client-api';
 import { formatPKR } from '@/lib/format';
 import { checkoutAttribution, trackBeginCheckout } from '@/lib/analytics';
 import { fieldErrors, readableError } from '@/lib/api-errors';
+import { blockingLines, lineLabel } from '@/lib/stock';
 import { Select } from '@/components/ui/Select';
 import { PhoneField, isValidPKMobile, normalisePKPhone, toE164PK } from '@/components/ui/PhoneField';
 
@@ -91,6 +92,12 @@ export default function CheckoutPage() {
   if (loading) return <div className="container-x py-20 text-center">Loading…</div>;
   if (!cart || cart.lines.length === 0)
     return <div className="container-x py-20 text-center">Your cart is empty.</div>;
+
+  // A cart doesn't reserve stock, so an item can sell out between adding it and
+  // paying. The cart page blocks this route, but a bookmark, the back button or
+  // a long-open tab can still land here — and finding out after the address is
+  // typed is exactly the moment that loses the sale.
+  const outOfStock = blockingLines(cart.lines);
 
   const placeOrder = async () => {
     setError(null);
@@ -337,7 +344,27 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <button onClick={placeOrder} disabled={busy} className="btn-primary mt-5 w-full">
+          {outOfStock.length > 0 && (
+            <div className="mt-4 rounded bg-sale/10 p-3 text-sm text-sale" role="alert">
+              <p className="font-medium">Your cart needs updating before you can order:</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5">
+                {outOfStock.map((l) => (
+                  <li key={l.variantId}>
+                    {lineLabel(l)} — {l.stock === 0 ? 'sold out' : `only ${l.stock} left`}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/cart" className="mt-2 inline-block font-medium underline">
+                Back to cart
+              </Link>
+            </div>
+          )}
+
+          <button
+            onClick={placeOrder}
+            disabled={busy || outOfStock.length > 0}
+            className="btn-primary mt-5 w-full disabled:opacity-50"
+          >
             {busy ? 'Placing Order…' : 'Place Order'}
           </button>
           <p className="mt-3 text-center text-xs text-ink/50">🔒 Secure checkout</p>
