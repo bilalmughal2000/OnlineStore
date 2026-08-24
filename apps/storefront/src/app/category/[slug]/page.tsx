@@ -6,7 +6,6 @@ import { absoluteUrl } from '@/lib/site';
 import { ProductCard } from '@/components/ProductCard';
 import { ListingControls } from '@/components/ListingControls';
 import { ListingAnalytics } from '@/components/ListingAnalytics';
-import { CategorySidebar } from '@/components/CategorySidebar';
 import { Pagination } from '@/components/Pagination';
 
 type SearchParams = Record<string, string | undefined>;
@@ -62,9 +61,10 @@ export default async function CategoryPage({
   } catch {
     notFound(); // returns never — `data` is always assigned past this point
   }
-  // `branch` is the whole top-level tree this category sits in; `ancestors` is
-  // the path down to it. Together they drive the sidebar and the breadcrumbs.
-  const { category, ancestors, branch } = data;
+  // `ancestors` is the path down to this category — it drives the breadcrumbs
+  // and their structured data. Subcategory navigation lives in the header nav,
+  // so the listing page doesn't repeat it.
+  const { category, ancestors } = data;
 
   const query = new URLSearchParams({ category: params.slug });
   for (const key of ['sort', 'size', 'color', 'onSale', 'inStock', 'minPrice', 'maxPrice', 'page']) {
@@ -74,7 +74,6 @@ export default async function CategoryPage({
   const { items, total, page, totalPages } = await api.products(query.toString());
 
   const trail = [...ancestors, category];
-  const subcategories = category.children ?? [];
 
   // BreadcrumbList markup renders the category path in Google results instead
   // of a raw URL, which measurably improves click-through. Nested categories
@@ -117,43 +116,32 @@ export default async function CategoryPage({
         <span className="text-ink">{category.name}</span>
       </nav>
 
-      <div className="mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="font-serif text-3xl font-bold">{category.name}</h1>
-        {subcategories.length > 0 && (
-          <span className="text-sm text-ink/45">
-            {subcategories.length} {subcategories.length === 1 ? 'subcategory' : 'subcategories'}
-          </span>
-        )}
-      </div>
+      <h1 className="mb-6 font-serif text-3xl font-bold">{category.name}</h1>
       {category.description && (
         <p className="-mt-3 mb-6 max-w-2xl text-sm leading-relaxed text-ink/60">{category.description}</p>
       )}
 
-      <div className="flex flex-col lg:flex-row lg:gap-8">
-        <CategorySidebar branch={branch} activeSlug={category.slug} trail={trail.map((c) => c.slug)} />
+      <ListingControls total={total} />
 
-        <div className="min-w-0 flex-1">
-          <ListingControls total={total} />
-
-          {items.length === 0 ? (
-            <p className="py-16 text-center text-ink/60">No products match your filters.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 xl:grid-cols-4">
-              {items.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          )}
-
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            baseParams={Object.fromEntries(
-              Object.entries(searchParams).filter(([, v]) => v) as [string, string][],
-            )}
-          />
+      {items.length === 0 ? (
+        <p className="py-16 text-center text-ink/60">No products match your filters.</p>
+      ) : (
+        // The listing spans the full width now that the category tree has gone,
+        // so it earns an extra column on the widest screens.
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+          {items.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
         </div>
-      </div>
+      )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        baseParams={Object.fromEntries(
+          Object.entries(searchParams).filter(([, v]) => v) as [string, string][],
+        )}
+      />
     </div>
   );
 }
