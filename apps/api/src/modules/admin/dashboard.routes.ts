@@ -18,7 +18,7 @@ adminDashboardRouter.get(
     // disagree about what "low" means.
     const { threshold } = await getInventorySettings();
 
-    const [orderCount, pendingOrders, customerCount, paidOrders, recentOrders, lowStock, topProducts, byMethod] =
+    const [orderCount, pendingOrders, customerCount, paidOrders, recentOrders, lowStock, lowStockTotal, topProducts, byMethod] =
       await Promise.all([
         prisma.order.count(),
         prisma.order.count({ where: { status: { in: [OrderStatus.PLACED, OrderStatus.CONFIRMED] } } }),
@@ -36,8 +36,12 @@ adminDashboardRouter.get(
           where: { stock: { lte: threshold } },
           include: { product: { select: { title: true } } },
           take: 10,
-          orderBy: { stock: 'asc' },
+          // Sold out first, then closest to it — the order you'd restock in.
+          orderBy: [{ stock: 'asc' }, { productId: 'asc' }],
         }),
+        // Counted separately: the list above is capped at 10, so using its
+        // length as the KPI silently under-reported the real backlog.
+        prisma.productVariant.count({ where: { stock: { lte: threshold } } }),
         prisma.orderItem.groupBy({
           by: ['productTitle'],
           _sum: { quantity: true },
@@ -72,7 +76,7 @@ adminDashboardRouter.get(
         pendingOrders,
         totalCustomers: customerCount,
         paidRevenue: revenue,
-        lowStockCount: lowStock.length,
+        lowStockCount: lowStockTotal,
         lowStockThreshold: threshold,
       },
       dailyRevenue,
