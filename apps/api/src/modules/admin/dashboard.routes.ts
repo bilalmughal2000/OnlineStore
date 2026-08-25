@@ -3,6 +3,7 @@ import { prisma, OrderStatus, PaymentStatus } from '@store/database';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { serialize } from '../../lib/serialize';
 import { toNum } from '../../lib/money';
+import { getInventorySettings } from '../../lib/inventory';
 
 export const adminDashboardRouter = Router();
 
@@ -12,6 +13,10 @@ adminDashboardRouter.get(
   asyncHandler(async (_req, res) => {
     const since = new Date();
     since.setDate(since.getDate() - 30);
+
+    // Same line the email alerts use, so the tile and the alert can never
+    // disagree about what "low" means.
+    const { threshold } = await getInventorySettings();
 
     const [orderCount, pendingOrders, customerCount, paidOrders, recentOrders, lowStock, topProducts, byMethod] =
       await Promise.all([
@@ -28,7 +33,7 @@ adminDashboardRouter.get(
           include: { user: { select: { name: true, email: true } } },
         }),
         prisma.productVariant.findMany({
-          where: { stock: { lte: 5 } },
+          where: { stock: { lte: threshold } },
           include: { product: { select: { title: true } } },
           take: 10,
           orderBy: { stock: 'asc' },
@@ -68,6 +73,7 @@ adminDashboardRouter.get(
         totalCustomers: customerCount,
         paidRevenue: revenue,
         lowStockCount: lowStock.length,
+        lowStockThreshold: threshold,
       },
       dailyRevenue,
       recentOrders: serialize(recentOrders),

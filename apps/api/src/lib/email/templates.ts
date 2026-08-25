@@ -15,7 +15,8 @@ export type EmailTemplateKey =
   | 'ORDER_PLACED'
   | 'ORDER_STATUS'
   | 'PASSWORD_RESET'
-  | 'ORDER_LINKS';
+  | 'ORDER_LINKS'
+  | 'LOW_STOCK';
 
 export interface EmailTemplateDef {
   key: EmailTemplateKey;
@@ -153,6 +154,40 @@ ${BTN}
     },
     sample: { storeName: 'Aabroo' },
   },
+
+  LOW_STOCK: {
+    key: 'LOW_STOCK',
+    name: 'Low stock alert',
+    description: 'Sent to you (not the customer) when an item runs low or sells out.',
+    subject: '{{alertTitle}} — {{itemCount}} item(s) need restocking',
+    html: `<p style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#1c1917">{{alertTitle}}</p>
+<p style="margin:0 0 22px 0;color:#57534e">These items just dropped to or below your alert level. Restock them before they cost you sales.</p>
+
+{{itemsTable}}
+
+${BTN}
+
+<p style="margin:22px 0 0 0;color:#78716c;font-size:13px">You're getting this because low-stock alerts are on. Turn them off or change the level in Settings &rsaquo; Inventory.</p>`,
+    variables: {
+      alertTitle: 'e.g. "Sold out" or "Running low"',
+      itemsTable: 'The table of items and how many are left',
+      itemCount: 'How many items are in this alert',
+      ctaButton: 'The "Open products" button',
+      storeName: 'Your store name',
+    },
+    sample: {
+      alertTitle: 'Running low',
+      itemCount: '2',
+      itemsTable:
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-bottom:8px">' +
+        '<tr><td style="padding:10px 0;border-bottom:1px solid #e7e5e4;color:#1c1917">Summer Linen Kurti — M / Red</td>' +
+        '<td align="right" style="padding:10px 0;border-bottom:1px solid #e7e5e4;font-weight:700;color:#b45309">2 left</td></tr>' +
+        '<tr><td style="padding:10px 0;color:#1c1917">3-Piece Lawn Suit — L / Blue</td>' +
+        '<td align="right" style="padding:10px 0;font-weight:700;color:#dc2626">Sold out</td></tr></table>',
+      storeName: 'Aabroo',
+    },
+  },
+
 };
 
 export const TEMPLATE_KEYS = Object.keys(EMAIL_TEMPLATES) as EmailTemplateKey[];

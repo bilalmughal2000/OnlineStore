@@ -91,6 +91,41 @@ export function Settings() {
         </Field>
       </Section>
 
+      {/* Inventory — the alert level, shared by the dashboard tile and the emails. */}
+      <Section title="Inventory" onSave={() => save('inventory')} saved={saved === 'inventory'}>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.inventory?.alertsEnabled ?? true}
+            onChange={(e) => upd('inventory', 'alertsEnabled', e.target.checked)}
+          />
+          Email me when an item runs low or sells out
+        </label>
+        <Field label="Alert me at this many left">
+          <input
+            type="number"
+            min={0}
+            className="input"
+            value={settings.inventory?.lowStockThreshold ?? 5}
+            onChange={(e) => upd('inventory', 'lowStockThreshold', Number(e.target.value))}
+          />
+          <p className="mt-1 text-xs text-stone-400">
+            You’re emailed once when a sale takes an item down to this number, and again if it
+            sells out completely — not on every order after that. Restocking resets it. The
+            dashboard’s “Low Stock” tile uses the same number.
+          </p>
+        </Field>
+        <Field label="Send alerts to">
+          <input
+            className="input"
+            type="email"
+            placeholder="Leave blank to use the owner account’s email"
+            value={settings.inventory?.alertEmail ?? ''}
+            onChange={(e) => upd('inventory', 'alertEmail', e.target.value)}
+          />
+        </Field>
+      </Section>
+
       {/* Reviews — anyone can post one, so this decides what goes live unseen. */}
       <Section title="Reviews" onSave={() => save('reviews')} saved={saved === 'reviews'}>
         <Field label="Publish new reviews">

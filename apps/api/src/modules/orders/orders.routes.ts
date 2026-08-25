@@ -19,6 +19,7 @@ import { badRequest, notFound } from '../../lib/errors';
 import { serialize } from '../../lib/serialize';
 import { notifyOrderLinks, notifyOrderPlaced } from '../../lib/notify';
 import { capiContextFromRequest, sendPurchaseToMeta } from '../../lib/meta-capi';
+import { notifyLowStock } from '../../lib/inventory';
 import { priceCart } from './pricing';
 import { resolveCart } from '../cart/cart.service';
 
@@ -266,6 +267,11 @@ ordersRouter.post(
     // Order-confirmation notification (email + WhatsApp), best-effort.
     // Guests get a tokenised link so they can reopen the order without an account.
     if (buyer) notifyOrderPlaced(order, buyer, { guestToken: order.guestToken });
+
+    // Tell the owner if this sale took anything under the restock line. Runs
+    // after the order is committed and is never awaited — restocking is our
+    // problem, and it must not delay or fail the shopper's checkout.
+    notifyLowStock(pricing.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })));
 
     // Server-side Purchase → Meta Conversions API. Deliberately not awaited:
     // ad reporting must never add latency to (or fail) a completed checkout.

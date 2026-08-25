@@ -97,7 +97,7 @@ function getTransporter(): Transporter | null {
  * a missing SMTP config and a successful send all produced no output, which
  * makes "the email never arrived" impossible to diagnose from the logs.
  */
-async function sendEmail(to: string | null, subject: string, html: string): Promise<void> {
+export async function sendEmail(to: string | null, subject: string, html: string): Promise<void> {
   // The ENTIRE body is guarded. Callers invoke this inside
   // `void Promise.allSettled([...])`, which discards rejections — so anything
   // thrown outside a try (previously: building the transporter) disappeared
