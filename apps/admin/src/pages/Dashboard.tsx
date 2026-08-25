@@ -55,60 +55,6 @@ export function Dashboard() {
         ))}
       </div>
 
-      {/*
-        Sits directly under the KPIs, above the charts. The email alerts only
-        fire when a sale *crosses* the threshold, which by design says nothing
-        about stock that was already low or was set by hand in the admin. This
-        panel is the standing answer to "what needs restocking right now".
-      */}
-      {lowStock.length > 0 && (
-        <div className="card mt-6 overflow-hidden border-amber-300">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3">
-            <h2 className="flex items-center gap-2 font-semibold text-amber-900">
-              <PackageX size={17} />
-              Needs restocking
-            </h2>
-            <span className="text-xs text-amber-800">
-              {lowStockCount} {lowStockCount === 1 ? 'variant is' : 'variants are'} at or below {threshold}
-            </span>
-          </div>
-          <div className="divide-y divide-stone-100">
-            {lowStock.map((v: any) => {
-              const out = v.stock === 0;
-              return (
-                <Link
-                  key={v.id}
-                  to={`/products/${v.productId}`}
-                  className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm hover:bg-stone-50"
-                >
-                  <span className="min-w-0">
-                    <span className="font-medium">{v.product?.title}</span>
-                    {(v.size || v.color) && (
-                      <span className="text-stone-500">
-                        {' '}— {[v.size, v.color].filter(Boolean).join(' / ')}
-                      </span>
-                    )}
-                  </span>
-                  <span
-                    className={`badge shrink-0 ${out ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}
-                  >
-                    {out ? 'Sold out' : `${v.stock} left`}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-          {lowStockCount > lowStock.length && (
-            <Link
-              to="/products"
-              className="block border-t border-stone-100 px-4 py-2.5 text-center text-xs font-medium text-brand hover:bg-stone-50"
-            >
-              View all {lowStockCount} in Products
-            </Link>
-          )}
-        </div>
-      )}
-
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-4 font-semibold">Revenue (last 30 days)</h2>
@@ -204,6 +150,60 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+      {/*
+        Last on the page: it's a working list to act on, not a headline — the
+        Low Stock tile up top already carries the number. The email alerts only
+        fire when a sale *crosses* the threshold, which by design says nothing
+        about stock that was already low or was typed in by hand, so this is the
+        standing answer to "what needs restocking right now".
+      */}
+      {lowStock.length > 0 && (
+        <div className="card mt-6 overflow-hidden border-amber-300">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3">
+            <h2 className="flex items-center gap-2 font-semibold text-amber-900">
+              <PackageX size={17} />
+              Needs restocking
+            </h2>
+            <span className="text-xs text-amber-800">
+              {lowStockCount} {lowStockCount === 1 ? 'variant is' : 'variants are'} at or below {threshold}
+            </span>
+          </div>
+          <div className="divide-y divide-stone-100">
+            {lowStock.map((v: any) => {
+              const out = v.stock === 0;
+              return (
+                <Link
+                  key={v.id}
+                  to={`/products/${v.productId}`}
+                  className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm hover:bg-stone-50"
+                >
+                  <span className="min-w-0">
+                    <span className="font-medium">{v.product?.title}</span>
+                    {(v.size || v.color) && (
+                      <span className="text-stone-500">
+                        {' '}— {[v.size, v.color].filter(Boolean).join(' / ')}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`badge shrink-0 ${out ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}
+                  >
+                    {out ? 'Sold out' : `${v.stock} left`}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+          {lowStockCount > lowStock.length && (
+            <Link
+              to="/products"
+              className="block border-t border-stone-100 px-4 py-2.5 text-center text-xs font-medium text-brand hover:bg-stone-50"
+            >
+              View all {lowStockCount} in Products
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }
